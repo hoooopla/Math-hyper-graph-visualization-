@@ -14,10 +14,14 @@ test("the deployed page cache-busts the overlay fix", async () => {
   assert.match(html, /styles\.css\?v=drop-overlay-fix/);
 });
 
-test("the deployed page loads matching versions of the layout modules", async () => {
+test("the deployed page loads the KaTeX renderer and cache-busts the app", async () => {
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const app = await readFile(new URL("../src/app.js", import.meta.url), "utf8");
 
-  assert.match(html, /app\.js\?v=layout-and-schema-v2/);
+  assert.match(html, /katex@0\.16\.11\/dist\/katex\.min\.css/);
+  assert.match(html, /katex@0\.16\.11\/dist\/katex\.min\.js/);
+  assert.match(html, /app\.js\?v=katex-rendering-v3/);
   assert.match(app, /graph-core\.js\?v=layout-and-schema-v2/);
+  assert.match(app, /window\.katex\.renderToString/);
+  assert.match(app, /displayMode/);
 });

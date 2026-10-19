@@ -61,6 +61,9 @@ button { color: inherit; }
 .eyebrow { color: var(--accent); font: 700 10px/1 ui-monospace, monospace; letter-spacing: .16em; text-transform: uppercase; }
 .problem-summary h1 { margin: 8px 0 10px; font-size: 18px; line-height: 1.22; letter-spacing: -.02em; }
 .problem-statement { display: block; color: #9aa2b2; font: 12px/1.6 Georgia, serif; }
+.math-text .katex { color: inherit; font-size: 1em; }
+.math-text .katex-display { margin: .45em 0; overflow-x: auto; overflow-y: hidden; }
+.tex-fallback { font-family: Georgia, "Times New Roman", serif; }
 .search-box { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 5px; background: #080b10; color: #6e7787; }
 .search-box:focus-within { border-color: #4b5d31; box-shadow: 0 0 0 2px rgba(201,255,100,.06); }
 .search-box input { width: 100%; border: 0; outline: 0; color: #e5e8ee; background: transparent; font-size: 12px; }

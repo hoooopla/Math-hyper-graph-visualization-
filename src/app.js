@@ -281,7 +281,30 @@ shell.addEventListener("drop", (event) => { event.preventDefault(); overlay.hidd
 window.addEventListener("resize", () => { if (window.innerWidth > 760 && state.mobilePanel) { state.mobilePanel = null; render(); } });
 
 function mathHtml(value) {
-  return escapeHtml(String(value ?? "")).replace(/\\\((.*?)\\\)/gs, '<span class="tex">\\($1\\)</span>').replace(/\n/g, "<br>");
+  const source = String(value ?? "");
+  const delimiter = /\\\[([\s\S]*?)\\\]|\\\(([\s\S]*?)\\\)/g;
+  let html = "";
+  let cursor = 0;
+
+  for (const match of source.matchAll(delimiter)) {
+    html += escapeHtml(source.slice(cursor, match.index)).replace(/\n/g, "<br>");
+    const displayMode = match[1] !== undefined;
+    const tex = displayMode ? match[1] : match[2];
+
+    if (window.katex?.renderToString) {
+      html += window.katex.renderToString(tex, {
+        displayMode,
+        throwOnError: false,
+        strict: "ignore",
+        output: "htmlAndMathml",
+      });
+    } else {
+      html += `<span class="tex-fallback">${escapeHtml(match[0])}</span>`;
+    }
+    cursor = match.index + match[0].length;
+  }
+
+  return html + escapeHtml(source.slice(cursor)).replace(/\n/g, "<br>");
 }
 function formatValue(value) { return Array.isArray(value) ? value.join(" · ") : typeof value === "object" ? JSON.stringify(value) : String(value); }
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[character]); }
