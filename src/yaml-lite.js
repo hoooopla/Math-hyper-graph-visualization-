@@ -22,7 +22,8 @@ function preprocess(source) {
     const indent = raw[index].match(/^ */)[0].length;
     let text = stripComment(raw[index].slice(indent)).trimEnd();
     const block = text.match(/^(.*?):\s*([>|])([+-]?)\s*$/);
-    if (block) {
+    const listBlock = block ? null : text.match(/^-\s+([>|])([+-]?)\s*$/);
+    if (block || listBlock) {
       const content = [];
       let cursor = index + 1;
       let contentIndent = null;
@@ -39,9 +40,9 @@ function preprocess(source) {
         content.push(nextRaw.slice(Math.min(contentIndent, nextIndent)));
         cursor += 1;
       }
-      const value = block[2] === ">" ? foldBlock(content) : content.join("\n");
-      const chomped = block[3] === "-" ? value.replace(/\n+$/, "") : value;
-      text = `${block[1]}: ${JSON.stringify(chomped)}`;
+      const value = (block ? block[2] : listBlock[1]) === ">" ? foldBlock(content) : content.join("\n");
+      const chomped = (block ? block[3] : listBlock[2]) === "-" ? value.replace(/\n+$/, "") : value;
+      text = block ? `${block[1]}: ${JSON.stringify(chomped)}` : `- ${JSON.stringify(chomped)}`;
       index = cursor - 1;
     }
     lines.push({ indent, text, line: index + 1 });
