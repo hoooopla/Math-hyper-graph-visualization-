@@ -21,14 +21,19 @@ function normalizeGraph(graph) {
   if (!isObject(graph) || !Array.isArray(graph.nodes)) return graph;
   return {
     ...graph,
+    // Canonical YAML uses "assertion"; keep "claim" as a legacy upload alias.
     nodes: graph.nodes.map((node) => {
-      if (!isObject(node) || typeof node.claim === "string") return node;
-      if (typeof node.assertion !== "string") return node;
-      return { ...node, claim: node.assertion };
+      if (!isObject(node)) return node;
+      const assertion = typeof node.assertion === "string" ? node.assertion : node.claim;
+      return { ...node, assertion, claim: assertion };
     }),
+    theorems: Array.isArray(graph.theorems)
+      ? graph.theorems.map((theorem) => isObject(theorem)
+        ? { ...theorem, required_hypotheses: theorem.required_hypotheses ?? theorem.hypotheses }
+        : theorem)
+      : graph.theorems,
   };
 }
-
 export function validateGraph(graph) {
   const errors = [];
   const warnings = [];
@@ -44,7 +49,13 @@ export function validateGraph(graph) {
     if (!(key in graph)) error(key, "Required top-level field is missing.");
   }
 
-  if (!isObject(graph.problem)) error("problem", "Expected a mapping describing the problem.");
+  if (graph.schema_version !== "1.0") error("schema_version", 'Expected schema_version: "1.0".');
+    if (!isObject(graph.problem)) error("problem", "Expected a mapping describing the problem.");
+    else {
+      if (typeof graph.problem.id !== "string" || !graph.problem.id.trim()) error("problem.id", "Problem ID is required.");
+      if (typeof graph.problem.statement !== "string" || !graph.problem.statement.trim()) error("problem.statement", "Problem statement is required.");
+    }
+    if (!isObject(graph.canonical_notation)) error("canonical_notation", "Expected a notation mapping.");
   if (!Array.isArray(graph.nodes)) error("nodes", "Expected a list of assertion nodes.");
   if (!Array.isArray(graph.edges)) error("edges", "Expected a list of inference edges.");
   if (!Array.isArray(graph.theorems)) error("theorems", "Expected a list of theorems.");
@@ -65,7 +76,7 @@ export function validateGraph(graph) {
     else if (nodeIds.has(node.id)) error(`${path}.id`, `Duplicate node ID “${node.id}”.`);
     else nodeIds.add(node.id);
     if (!NODE_TYPES.includes(node.type)) error(`${path}.type`, `Expected one of: ${NODE_TYPES.join(", ")}.`);
-    if (!node.claim || typeof node.claim !== "string") error(`${path}.claim`, "Node claim must be a non-empty string.");
+    if (!node.assertion || typeof node.assertion !== "string") error(`${path}.assertion`, "Node assertion must be a non-empty string.");
   });
 
   theorems.forEach((theorem, index) => {
@@ -74,7 +85,9 @@ export function validateGraph(graph) {
     if (!theorem.id || typeof theorem.id !== "string") error(`${path}.id`, "Theorem ID must be a non-empty string.");
     else if (theoremIds.has(theorem.id)) error(`${path}.id`, `Duplicate theorem ID “${theorem.id}”.`);
     else theoremIds.add(theorem.id);
-    if (!theorem.statement) error(`${path}.statement`, "Theorem statement is required.");
+    if (typeof theorem.statement !== "string" || !theorem.statement.trim()) error(`${path}.statement`, "Theorem statement is required.");
+        if (theorem.required_hypotheses !== undefined && !Array.isArray(theorem.required_hypotheses))
+          error(`${path}.required_hypotheses`, "Required hypotheses must be a list.");
   });
 
   edges.forEach((edge, index) => {
@@ -88,28 +101,42 @@ export function validateGraph(graph) {
       if (!nodeIds.has(id)) error(`${path}.from[${sourceIndex}]`, `Unknown node “${id}”.`);
     });
     if (!nodeIds.has(edge.to)) error(`${path}.to`, `Unknown node “${edge.to}”.`);
-    if (!edge.method) error(`${path}.method`, "A short method description is required.");
-    if (!edge.justification) error(`${path}.justification`, "A mathematical justification is required.");
+    if (typeof edge.method !== "string" || !edge.method.trim()) error(`${path}.method`, "A short method description is required.");
+    if (typeof edge.justification !== "string" || !edge.justification.trim()) error(`${path}.justification`, "A mathematical justification is required.");
+        if (edge.uses !== undefined && !Array.isArray(edge.uses)) error(`${path}.uses`, "Theorem IDs must be a list.");
+        if (edge.obligations !== undefined && !Array.isArray(edge.obligations)) error(`${path}.obligations`, "Obligations must be a list.");
     asArray(edge.uses).forEach((id, theoremIndex) => {
       if (!theoremIds.has(id)) error(`${path}.uses[${theoremIndex}]`, `Unknown theorem “${id}”.`);
     });
   });
 
+  const mistakeIds = new Set();
+  const categories = new Set(["invalid_inference", "missing_justification", "implicit_justification", "misapplied_theorem", "missing_case", "unjustified_assumption", "notation_or_definition_error"]);
   mistakes.forEach((mistake, index) => {
     const path = `mistakes[${index}]`;
     if (!isObject(mistake)) return error(path, "Expected a mistake mapping.");
+    if (typeof mistake.id !== "string" || !mistake.id) error(`${path}.id`, "Mistake ID is required.");
+    else if (mistakeIds.has(mistake.id)) error(`${path}.id`, `Duplicate mistake ID “${mistake.id}”.`);
+    else mistakeIds.add(mistake.id);
+    if (!Array.isArray(mistake.related_edges) || !mistake.related_edges.length)
+      error(`${path}.related_edges`, "Mistake must reference at least one edge.");
     asArray(mistake.related_edges).forEach((id, edgeIndex) => {
       if (!edgeIds.has(id)) error(`${path}.related_edges[${edgeIndex}]`, `Unknown edge “${id}”.`);
     });
+    if (typeof mistake.pattern !== "string" || !mistake.pattern.trim()) error(`${path}.pattern`, "Mistake pattern is required.");
+    if (typeof mistake.defect !== "string" || !mistake.defect.trim()) error(`${path}.defect`, "Mistake defect is required.");
+    if (!categories.has(mistake.category)) error(`${path}.category`, "Unknown mistake category.");
   });
-
-  const goals = nodes.filter((node) => node.type === "goal");
+  const goals = nodes.filter((node) => isObject(node) && node.type === "goal");
   if (goals.length === 0) warning("nodes", "No goal node is defined.");
-  const reachable = computeReachableNodes(nodes, edges);
+  // Broken uploads should produce validation messages, not runtime errors.
+  const safeNodes = nodes.filter((node) => isObject(node) && typeof node.id === "string");
+  const safeEdges = edges.filter((edge) => isObject(edge) && Array.isArray(edge.from) && typeof edge.to === "string");
+  const reachable = computeReachableNodes(safeNodes, safeEdges);
   goals.forEach((goal) => {
     if (!reachable.has(goal.id)) warning(`nodes.${goal.id}`, "Goal is not reachable from the premise nodes.");
   });
-  detectCycles(nodes, edges).forEach((id) => warning(`nodes.${id}`, "This node participates in a dependency cycle."));
+  detectCycles(safeNodes, safeEdges).forEach((id) => warning(`nodes.${id}`, "This node participates in a dependency cycle."));
 
   return { errors, warnings };
 }
