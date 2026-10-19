@@ -1,6 +1,7 @@
 import { buildVisualGraph, enumerateProofPaths, getRelatedMistakes, NODE_TYPES, parseGraphYaml } from "./graph-core.js?v=canonical-schema-v1";
 import { sampleGraphYaml } from "./sampleGraph.js?v=canonical-sample-v1";
 import { renderMath } from "./math-render.js";
+import { contextCardsHtml, contextInspectorHtml, theoremInspectorHtml } from "./context-ui.js";
 const root = document.querySelector("#root");
 const TYPE_LABELS = { premise: "Premises", milestone: "Milestones", goal: "Goals" };
 const state = {
@@ -10,6 +11,7 @@ const state = {
   filters: new Set(NODE_TYPES),
   selection: { type: "node", id: "goal_roots_commute" },
   activePath: null,
+  goalId: null,
   view: { x: 0, y: 42, scale: 1 },
   mobilePanel: null,
 };
@@ -85,17 +87,23 @@ function renderHeader() {
   topbar.innerHTML = `
     <div class="brand-mark">${icon("atlas")}<span>PROOF ATLAS</span><em>01</em></div>
     <div class="file-chip">${icon("file")}<span>${escapeHtml(state.fileName)}</span></div>
-    <div class="status-chip ${valid ? "valid" : "invalid"}">
+    <button type="button" class="status-chip ${valid ? "valid" : "invalid"}" data-select-type="validation" data-select-id="report" aria-label="Inspect structural validation results">
       ${icon(valid ? "shield" : "warning")}<span>${valid ? `Valid · ${state.report.warnings.length} warnings` : `${state.report.errors.length} errors`}</span>
-    </div>
+    </button>
     <button class="upload-button" data-action="upload">${icon("upload")}<span>Open YAML</span></button>`;
+}
+
+function currentGoal(graph) {
+  const goals = graph?.nodes?.filter((node) => node.type === "goal") ?? [];
+  return goals.find((goal) => goal.id === state.goalId) ?? goals[0] ?? null;
 }
 
 function renderSidebar() {
   const graph = state.report.graph;
   const valid = graph && state.report.errors.length === 0;
   const goals = valid ? graph.nodes.filter((node) => node.type === "goal") : [];
-  const paths = goals[0] ? enumerateProofPaths(graph, goals[0].id) : [];
+  const chosenGoal = valid ? currentGoal(graph) : null;
+  const paths = chosenGoal ? enumerateProofPaths(graph, chosenGoal.id) : [];
   sidebar.innerHTML = `
     <button class="mobile-close" data-mobile="close" aria-label="Close panel">${icon("close")}</button>
     <section class="sidebar-section problem-summary">
@@ -114,7 +122,11 @@ function renderSidebar() {
     </section>
     <section class="sidebar-section path-section">
       <div class="section-heading"><span>Solution paths</span>${icon("branch")}</div>
-      ${paths.length ? paths.map((path, index) => `<button class="path-card ${state.activePath === index ? "active" : ""}" data-path="${index}"><span class="path-number">${String(index + 1).padStart(2, "0")}</span><span><strong>Path ${index + 1}</strong><small>${path.edgeIds.size} inferences · ${path.nodeIds.size} assertions</small></span>${icon("right")}</button>`).join("") : `<p class="empty-note">No complete path reaches the first goal.</p>`}
+      ${goals.length ? `<label class="goal-picker-label" for="proof-goal">Target goal
+        <select id="proof-goal" data-goal aria-label="Select proof goal">
+          ${goals.map((goal) => `<option value="${escapeAttribute(goal.id)}" ${goal.id === chosenGoal?.id ? "selected" : ""}>${escapeHtml(goal.id)}</option>`).join("")}
+        </select></label>` : ""}
+      ${paths.length ? paths.map((path, index) => `<button class="path-card ${state.activePath === index ? "active" : ""}" data-path="${index}"><span class="path-number">${String(index + 1).padStart(2, "0")}</span><span><strong>Path ${index + 1}</strong><small>${path.edgeIds.size} inferences · ${path.nodeIds.size} assertions</small></span>${icon("right")}</button>`).join("") : `<p class="empty-note">No complete proof path reaches this goal.</p>`}
     </section>
     <button class="load-example" data-action="example">${icon("spark")} Reload example</button>`;
 }
@@ -127,11 +139,14 @@ function renderWorkspace() {
 
   const graph = state.report.graph;
   const visual = buildVisualGraph(graph, state.filters, state.query);
-  const goal = graph.nodes.find((node) => node.type === "goal");
+  const goal = currentGoal(graph);
   const paths = goal ? enumerateProofPaths(graph, goal.id) : [];
   const selectedPath = state.activePath === null ? null : paths[state.activePath];
-  workspace.innerHTML = `<div class="graph-viewport">
-    <div class="canvas-meta"><span><i class="live-dot"></i> Graph workspace</span><span>${visual.nodes.filter((node) => node.visualType === "assertion").length} assertions · ${visual.nodes.filter((node) => node.visualType === "method").length} inferences</span></div>
+  workspace.innerHTML = `<div class="canvas-meta"><span><i class="live-dot"></i> Graph workspace</span><span>${visual.nodes.filter((node) => node.visualType === "assertion").length} assertions · ${visual.nodes.filter((node) => node.visualType === "method").length} inferences</span></div>
+    <div class="graph-context-cards" role="group" aria-label="Graph reference cards">
+      ${contextCardsHtml(graph, state.selection, escapeHtml)}
+    </div>
+    <div class="graph-viewport">
     <div class="canvas-tools"><button data-action="zoom-in" aria-label="Zoom in">${icon("plus")}</button><button data-action="zoom-out" aria-label="Zoom out">${icon("minus")}</button><button data-action="fit" aria-label="Fit graph">${icon("fit")}</button></div>
     ${visual.nodes.length ? graphWorldHtml(visual, selectedPath) : `<div class="empty-canvas">${icon("search", 24)}<span>No matching graph elements</span></div>`}
   </div>`;
@@ -169,16 +184,64 @@ function graphWorldHtml(visual, selectedPath) {
 function renderInspector() {
   const graph = state.report.graph;
   const selection = state.selection;
+  const close = `<button class="mobile-close" data-mobile="close" aria-label="Close details">${icon("close")}</button>`;
+  if (selection?.type === "validation") {
+    inspector.innerHTML = close + validationInspectorHtml();
+    return;
+  }
   if (!graph || !selection) {
-    inspector.innerHTML = `<button class="mobile-close" data-mobile="close">${icon("close")}</button><div class="inspector-empty">${icon("fit", 22)}<p>Select an assertion or inference to inspect it.</p></div>`;
+    inspector.innerHTML = close + `<div class="inspector-empty"><p>Select a reference card, assertion or inference to inspect it.</p></div>`;
     return;
   }
-  const item = selection.type === "node" ? graph.nodes?.find((node) => node.id === selection.id) : graph.edges?.find((edge) => edge.id === selection.id);
+  const api = { mathHtml, escapeHtml, detail };
+  if (selection.type === "context") {
+    inspector.innerHTML = close + contextInspectorHtml(graph, selection.id, api);
+    return;
+  }
+  if (selection.type === "theorem") {
+    inspector.innerHTML = close + theoremInspectorHtml(graph, selection.id, api);
+    return;
+  }
+  if (selection.type === "mistake") {
+    inspector.innerHTML = close + mistakeInspector(graph, selection.id);
+    return;
+  }
+  const item = selection.type === "node"
+    ? graph.nodes?.find((node) => node.id === selection.id)
+    : graph.edges?.find((edge) => edge.id === selection.id);
   if (!item) {
-    inspector.innerHTML = `<button class="mobile-close" data-mobile="close">${icon("close")}</button><div class="inspector-empty"><p>This item is hidden or unavailable.</p></div>`;
+    inspector.innerHTML = close + `<div class="inspector-empty"><p>This item is hidden or unavailable.</p></div>`;
     return;
   }
-  inspector.innerHTML = `<button class="mobile-close" data-mobile="close">${icon("close")}</button>${selection.type === "node" ? nodeInspector(graph, item) : edgeInspector(graph, item)}`;
+  inspector.innerHTML = close + (selection.type === "node" ? nodeInspector(graph, item) : edgeInspector(graph, item));
+}
+
+function validationInspectorHtml() {
+  const { errors = [], warnings = [], graph } = state.report;
+  const rows = (items) => items.length
+    ? `<div class="validation-list inspector-validation-list">${items.map((item) => `<div><code>${escapeHtml(item.path)}</code><span>${escapeHtml(item.message)}</span></div>`).join("")}</div>`
+    : `<span class="empty-note">None</span>`;
+  return `<div class="inspector-content context-inspector">
+    <div class="inspector-kicker">Structural validation</div>
+    <h2>${errors.length ? "Action required" : "Graph validation"}</h2>
+    ${detail("Errors · " + errors.length, rows(errors), "important")}
+    ${detail("Warnings · " + warnings.length, rows(warnings), "important")}
+    ${detail("Schema", `<code>${escapeHtml(graph?.schema_version ?? "Unknown")}</code>`)}
+    <p class="validation-disclaimer">Schema, reference and reachability checks do not establish mathematical correctness.</p>
+  </div>`;
+}
+
+function mistakeInspector(graph, id) {
+  const mistake = graph.mistakes?.find((item) => item.id === id);
+  if (!mistake) return `<div class="inspector-empty"><p>Mistake reference not found.</p></div>`;
+  const related = (mistake.related_edges ?? [])
+    .map((edgeId) => graph.edges.find((edge) => edge.id === edgeId)).filter(Boolean);
+  return `<div class="inspector-content"><div class="inspector-kicker">Common mistake</div>
+    <h2>${escapeHtml(mistake.category)}</h2>${copyId(mistake.id)}
+    ${detail("Pattern", mathHtml(mistake.pattern), "important")}
+    ${detail("Why it fails", mathHtml(mistake.defect), "important")}
+    ${detail("Related inferences", linkList("", related, "edge"))}
+  </div>`;
 }
 
 function nodeInspector(graph, node) {
@@ -192,7 +255,7 @@ function edgeInspector(graph, edge) {
   const target = graph.nodes.find((node) => node.id === edge.to);
   const theorems = (edge.uses ?? []).map((id) => graph.theorems.find((theorem) => theorem.id === id)).filter(Boolean);
   const mistakes = getRelatedMistakes(graph, edge.id);
-  return `<div class="inspector-content"><div class="inspector-kicker edge">${icon("branch", 14)}inference</div><h2>${escapeHtml(edge.method)}</h2>${copyId(edge.id)}${detail("From · all required", linkList("", sources, "node"), "important")}${detail("To", linkList("", target ? [target] : [], "node"), "important")}${detail("Justification", mathHtml(edge.justification), "important")}${edge.obligations ? detail("Check these obligations", mathHtml(formatValue(edge.obligations)), "important") : ""}${theorems.length ? detail("Theorems", theorems.map((theorem) => `<article class="theorem-card"><strong>${escapeHtml(theorem.id)}</strong><span class="math-text">${mathHtml(theorem.statement)}</span>${Array.isArray(theorem.required_hypotheses) && theorem.required_hypotheses.length ? `<div class="hypotheses-list"><strong>Required hypotheses</strong>${theorem.required_hypotheses.map((h) => `<span class="math-text">${mathHtml(h)}</span>`).join("")}</div>` : ""}${theorem.source ? `<small>${escapeHtml(theorem.source)}</small>` : ""}</article>`).join("")) : ""}${mistakes.length ? detail("Common mistakes", mistakes.map((mistake) => `<article class="mistake-card"><span>${icon("warning", 14)}${escapeHtml(mistake.category)}</span><span class="math-text">${mathHtml(mistake.pattern)}</span><small>${mathHtml(mistake.defect)}</small></article>`).join("")) : ""}</div>`;
+  return `<div class="inspector-content"><div class="inspector-kicker edge">${icon("branch", 14)}inference</div><h2>${escapeHtml(edge.method)}</h2>${copyId(edge.id)}${detail("From · all required", linkList("", sources, "node"), "important")}${detail("To", linkList("", target ? [target] : [], "node"), "important")}${detail("Justification", mathHtml(edge.justification), "important")}${edge.obligations ? detail("Check these obligations", mathHtml(formatValue(edge.obligations)), "important") : ""}${edge.scope ? detail("Scope / local assumptions", mathHtml(formatValue(edge.scope)), "important") : ""}${theorems.length ? detail("Theorems", theorems.map((theorem) => `<article class="theorem-card"><button type="button" class="reference-link" data-select-type="theorem" data-select-id="${escapeAttribute(theorem.id)}">${escapeHtml(theorem.id)} ↗</button><span class="math-text">${mathHtml(theorem.statement)}</span>${Array.isArray(theorem.required_hypotheses) && theorem.required_hypotheses.length ? `<div class="hypotheses-list"><strong>Required hypotheses</strong>${theorem.required_hypotheses.map((h) => `<span class="math-text">${mathHtml(h)}</span>`).join("")}</div>` : ""}${theorem.source ? `<small>${escapeHtml(theorem.source)}</small>` : ""}</article>`).join("")) : ""}${mistakes.length ? detail("Common mistakes", mistakes.map((mistake) => `<article class="mistake-card"><span>${icon("warning", 14)}${escapeHtml(mistake.category)}</span><button type="button" class="reference-link mistake-id" data-select-type="mistake" data-select-id="${escapeAttribute(mistake.id)}">${escapeHtml(mistake.id)} ↗</button><span class="math-text">${mathHtml(mistake.pattern)}</span><small class="math-text">${mathHtml(mistake.defect)}</small><div class="reference-related"><strong>Related inferences</strong>${linkList("", (mistake.related_edges ?? []).map((id) => graph.edges.find((item) => item.id === id)).filter(Boolean), "edge")}</div></article>`).join("")) : ""}</div>`;
 }
 
 function detail(title, content, priority = "") { return `<section class="detail-block ${priority}"><h3>${escapeHtml(title)}</h3>${content}</section>`; }
@@ -205,8 +268,9 @@ function loadSource(source, name) {
   state.report = parseGraphYaml(source);
   state.fileName = name;
   state.activePath = null;
+  state.goalId = state.report.graph?.nodes?.find((node) => node.type === "goal")?.id ?? null;
   state.view = { x: 0, y: 42, scale: 1 };
-  state.selection = state.report.graph?.nodes?.[0] ? { type: "node", id: state.report.graph.nodes[0].id } : null;
+  state.selection = state.report.errors.length ? { type: "validation", id: "report" } : { type: "context", id: "problem" };
   render();
 }
 
@@ -273,6 +337,13 @@ root.addEventListener("click", async (event) => {
   const selection = event.target.closest("[data-select-id]");
   if (selection) {
     state.selection = { type: selection.dataset.selectType, id: selection.dataset.selectId };
+    if (state.selection.type === "node") {
+      const selectedNode = state.report.graph?.nodes?.find((node) => node.id === state.selection.id);
+      if (selectedNode?.type === "goal" && selectedNode.id !== state.goalId) {
+        state.goalId = selectedNode.id;
+        state.activePath = null;
+      }
+    }
     state.mobilePanel = window.innerWidth <= 760 ? "inspector" : state.mobilePanel;
     render();
   }
@@ -301,6 +372,12 @@ root.addEventListener("input", (event) => {
 });
 
 root.addEventListener("change", (event) => {
+  if (event.target.matches("[data-goal]")) {
+    state.goalId = event.target.value;
+    state.activePath = null;
+    render();
+    return;
+  }
   if (event.target.matches("[data-filter]")) {
     const type = event.target.dataset.filter;
     event.target.checked ? state.filters.add(type) : state.filters.delete(type);

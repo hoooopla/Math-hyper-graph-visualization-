@@ -18,6 +18,18 @@ npm run check
 
 Phase 1 supports YAML upload and drag-and-drop, schema/reference validation, explicit AND-hyperedge rendering, node and inference inspection, theorem and mistake details, filters, search, path highlighting, zoom/pan, readable LaTeX source, and a responsive dark-mode layout.
 
+The graph workspace now includes **Problem**, **Notation**, and **Theorems**
+reference cards in a fixed strip above the interactive proof graph. Click them
+to inspect the full statement, source PDF/pages, ambiguities, notation dictionary,
+and theorem library (including hypotheses and usage links). These reference cards
+are presentation-only: they are not new mathematical premise nodes or edges.
+
+Choose any **Target goal** in the sidebar to browse and highlight that goal's
+proof paths. Click the validation status in the toolbar for errors and warnings.
+Node and inference inspectors include scope information, theorem details,
+known mistake IDs, and related inference navigation. All math is rendered with
+KaTeX; the canonical YAML schema is unchanged.
+
 ## Canonical YAML contract (v1.0)
 
 The authoritative mathematical format is documented in the private
