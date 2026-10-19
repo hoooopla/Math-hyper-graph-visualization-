@@ -40,7 +40,7 @@ test("Notation inspector enumerates every canonical notation entry", () => {
 test("Theorem library displays statements, required hypotheses, sources and related edge links", () => {
   const graph = baseGraph();
   const html = contextInspectorHtml(graph, "theorems", api);
-  assert.equal((html.match(/class="reference-theorem"/g) || []).length, graph.theorems.length);
+  assert.equal((html.match(/class="theorem-card reference-theorem"/g) || []).length, graph.theorems.length);
   assert.match(html, /Required hypotheses/);
   assert.match(html, /Standard finite-dimensional spectral theorem/);
   assert.match(html, /data-select-type="theorem"/);
