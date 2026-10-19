@@ -119,3 +119,23 @@ test("incorrect schema versions and mistake categories fail validation", () => {
   assert(result.errors.some((item) => item.path === "schema_version"));
   assert(result.errors.some((item) => item.path === "mistakes[0].category"));
 });
+
+test("cyclic alternative proofs do not inflate vertical layout depth", () => {
+  const nodes = [
+    { id: "premise", type: "premise", claim: "Premise" },
+    { id: "goal", type: "goal", claim: "Goal" },
+    { id: "cycle_a", type: "milestone", claim: "Cycle A" },
+    { id: "cycle_b", type: "milestone", claim: "Cycle B" },
+  ];
+  const edges = [
+    { id: "direct", from: ["premise"], to: "goal", method: "Direct", justification: "Direct route" },
+    { id: "into_cycle", from: ["goal"], to: "cycle_a", method: "Continue", justification: "Continue" },
+    { id: "cycle_step", from: ["cycle_a"], to: "cycle_b", method: "Cycle", justification: "Cycle" },
+    { id: "back_to_goal", from: ["cycle_b"], to: "goal", method: "Back", justification: "Back edge" },
+  ];
+
+  const visual = buildVisualGraph({ nodes, edges });
+  const assertionLayers = visual.nodes.filter((node) => node.visualType === "assertion").map((node) => node.layer);
+  assert.equal(visual.nodes.find((node) => node.id === "goal").layer, 2);
+  assert(Math.max(...assertionLayers) <= 6);
+});
