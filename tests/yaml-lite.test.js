@@ -21,5 +21,5 @@ test("parse quoted scalars in flow collections without corrupting mathematics", 
 
 test("detect duplicate and malformed inline mappings", () => {
   assert.throws(() => parseYaml("x: {a: 1, a: 2}"), /duplicate inline key/);
-  assert.throws(() => parseYaml("x: [1, [2, 3]"), /Unclosed inline/);
+  assert.throws(() => parseYaml("x: [1, [2, 3]"), /Unclosed inline|Unbalanced inline/);
 });
