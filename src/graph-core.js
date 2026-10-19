@@ -205,23 +205,34 @@ export function buildVisualGraph(graph, filters = new Set(NODE_TYPES), query = "
 }
 
 export function layoutGraph(nodes, edges) {
-  const layerByNode = new Map(nodes.map((node) => [node.id, node.type === "premise" ? 0 : 1]));
+  // A hyperedge is an AND step, so it must sit below its deepest source.
+  // Incoming hyperedges are OR alternatives, so a node uses its shallowest
+  // complete derivation. This also prevents cyclic alternatives from pushing
+  // a reachable node lower on every layout pass.
+  const layerByNode = new Map(nodes.map((node) => [node.id, node.type === "premise" ? 0 : Infinity]));
   for (let pass = 0; pass < nodes.length + 1; pass += 1) {
     let changed = false;
     for (const edge of edges) {
-      const sourceLayers = edge.from.map((id) => layerByNode.get(id) ?? 0);
+      const sourceLayers = edge.from.map((id) => layerByNode.get(id) ?? Infinity);
+      if (sourceLayers.some((layer) => !Number.isFinite(layer))) continue;
       const next = Math.max(...sourceLayers) + 2;
-      if (next > (layerByNode.get(edge.to) ?? 0)) {
+      if (next < (layerByNode.get(edge.to) ?? Infinity)) {
         layerByNode.set(edge.to, next);
         changed = true;
       }
     }
     if (!changed) break;
   }
+  const deepestReachableLayer = Math.max(0, ...[...layerByNode.values()].filter(Number.isFinite));
+  layerByNode.forEach((layer, id) => {
+    if (!Number.isFinite(layer)) layerByNode.set(id, deepestReachableLayer + 2);
+  });
   const visualNodes = nodes.map((node) => ({ ...node, visualType: "assertion", layer: layerByNode.get(node.id) ?? 0 }));
   edges.forEach((edge) => {
     const sourceLayer = Math.max(...edge.from.map((id) => layerByNode.get(id) ?? 0));
-    visualNodes.push({ ...edge, visualType: "method", layer: sourceLayer + 1 });
+    const targetLayer = layerByNode.get(edge.to) ?? sourceLayer + 2;
+    const methodLayer = sourceLayer === targetLayer ? sourceLayer + 1 : Math.min(sourceLayer, targetLayer) + 1;
+    visualNodes.push({ ...edge, visualType: "method", layer: methodLayer });
   });
   const layers = new Map();
   visualNodes.forEach((node) => {
