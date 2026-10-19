@@ -11,7 +11,7 @@ test("the YAML drop overlay is removed from layout when hidden", async () => {
 test("the deployed page cache-busts the overlay fix", async () => {
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 
-  assert.match(html, /styles\.css\?v=drop-overlay-fix/);
+  assert.match(html, /styles\.css\?v=canonical-math-v1/);
 });
 
 test("the deployed page loads the KaTeX renderer and cache-busts the app", async () => {
@@ -20,8 +20,8 @@ test("the deployed page loads the KaTeX renderer and cache-busts the app", async
 
   assert.match(html, /katex@0\.16\.11\/dist\/katex\.min\.css/);
   assert.match(html, /katex@0\.16\.11\/dist\/katex\.min\.js/);
-  assert.match(html, /app\.js\?v=katex-rendering-v3/);
-  assert.match(app, /graph-core\.js\?v=layout-and-schema-v2/);
-  assert.match(app, /window\.katex\.renderToString/);
-  assert.match(app, /displayMode/);
+  assert.match(html, /app\.js\?v=canonical-math-v1/);
+  assert.match(app, /graph-core\.js\?v=canonical-schema-v1/);
+  assert.match(app, /import \{ renderMath \} from/);
+  assert.match(app, /renderMath\(value, window\.katex\)/);
 });

@@ -22,7 +22,8 @@ function preprocess(source) {
     const indent = raw[index].match(/^ */)[0].length;
     let text = stripComment(raw[index].slice(indent)).trimEnd();
     const block = text.match(/^(.*?):\s*([>|])([+-]?)\s*$/);
-    if (block) {
+    const listBlock = block ? null : text.match(/^-\s+([>|])([+-]?)\s*$/);
+    if (block || listBlock) {
       const content = [];
       let cursor = index + 1;
       let contentIndent = null;
@@ -39,9 +40,9 @@ function preprocess(source) {
         content.push(nextRaw.slice(Math.min(contentIndent, nextIndent)));
         cursor += 1;
       }
-      const value = block[2] === ">" ? foldBlock(content) : content.join("\n");
-      const chomped = block[3] === "-" ? value.replace(/\n+$/, "") : value;
-      text = `${block[1]}: ${JSON.stringify(chomped)}`;
+      const value = (block ? block[2] : listBlock[1]) === ">" ? foldBlock(content) : content.join("\n");
+      const chomped = (block ? block[3] : listBlock[2]) === "-" ? value.replace(/\n+$/, "") : value;
+      text = block ? `${block[1]}: ${JSON.stringify(chomped)}` : `- ${JSON.stringify(chomped)}`;
       index = cursor - 1;
     }
     lines.push({ indent, text, line: index + 1 });
@@ -186,11 +187,62 @@ function parseScalar(raw, line) {
 }
 
 function parseInline(value, line) {
-  const normalized = value.replace(/'([^']*(?:''[^']*)*)'/g, (_, inner) => JSON.stringify(inner.replace(/''/g, "'")));
-  try { return JSON.parse(normalized); }
-  catch { throw syntaxError(line, "Invalid inline array or mapping. Use quoted string values."); }
+  const array = value[0] === "[";
+  const end = array ? "]" : "}";
+  if (!value.endsWith(end)) throw syntaxError(line, "Unclosed inline sequence or mapping.");
+  const body = value.slice(1, -1).trim();
+  if (!body) return array ? [] : {};
+  const items = splitInlineItems(body, line);
+  if (array) return items.map((item) => parseScalar(item, line));
+  const mapping = {};
+  for (const item of items) {
+    const colon = findColon(item);
+    if (colon < 0) throw syntaxError(line, "Expected key: value in inline mapping.");
+    const rawKey = item.slice(0, colon).trim();
+    const key = rawKey.startsWith("'") || rawKey.startsWith('"') ? unquote(rawKey, line) : rawKey;
+    if (!key || Object.prototype.hasOwnProperty.call(mapping, key))
+      throw syntaxError(line, `Invalid or duplicate inline key “${key}”.`);
+    mapping[key] = parseScalar(item.slice(colon + 1).trim(), line);
+  }
+  return mapping;
 }
 
+function splitInlineItems(body, line) {
+  const chunks = [];
+  let quote = null;
+  let escaped = false;
+  let square = 0;
+  let curly = 0;
+  let from = 0;
+  for (let i = 0; i < body.length; i += 1) {
+    const char = body[i];
+    if (escaped) { escaped = false; continue; }
+    if (char === "\\" && quote === '"') { escaped = true; continue; }
+    if ((char === "'" || char === '"') && (!quote || quote === char)) {
+      // YAML doubles single-quote characters within single-quoted scalars.
+      if (char === "'" && quote === "'" && body[i + 1] === "'") { i += 1; continue; }
+      quote = quote ? null : char;
+      continue;
+    }
+    if (quote) continue;
+    if (char === "[") square += 1;
+    if (char === "]") square -= 1;
+    if (char === "{") curly += 1;
+    if (char === "}") curly -= 1;
+    if (square < 0 || curly < 0) throw syntaxError(line, "Unbalanced inline brackets.");
+    if (char === "," && square === 0 && curly === 0) {
+      const item = body.slice(from, i).trim();
+      if (!item) throw syntaxError(line, "Empty inline item.");
+      chunks.push(item);
+      from = i + 1;
+    }
+  }
+  if (quote || square !== 0 || curly !== 0) throw syntaxError(line, "Unbalanced inline quotes or brackets.");
+  const last = body.slice(from).trim();
+  // Allow YAML trailing commas in flow collections.
+  if (last) chunks.push(last);
+  return chunks;
+}
 function unquote(value, line) {
   if (value.startsWith("'")) {
     if (!value.endsWith("'")) throw syntaxError(line, "Unterminated single-quoted string.");

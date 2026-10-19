@@ -1,5 +1,6 @@
-import { buildVisualGraph, enumerateProofPaths, getRelatedMistakes, NODE_TYPES, parseGraphYaml } from "./graph-core.js?v=layout-and-schema-v2";
-import { sampleGraphYaml } from "./sampleGraph.js";
+import { buildVisualGraph, enumerateProofPaths, getRelatedMistakes, NODE_TYPES, parseGraphYaml } from "./graph-core.js?v=canonical-schema-v1";
+import { sampleGraphYaml } from "./sampleGraph.js?v=canonical-sample-v1";
+import { renderMath } from "./math-render.js";
 const root = document.querySelector("#root");
 const TYPE_LABELS = { premise: "Premises", milestone: "Milestones", goal: "Goals" };
 const state = {
@@ -157,7 +158,7 @@ function edgeInspector(graph, edge) {
   const target = graph.nodes.find((node) => node.id === edge.to);
   const theorems = (edge.uses ?? []).map((id) => graph.theorems.find((theorem) => theorem.id === id)).filter(Boolean);
   const mistakes = getRelatedMistakes(graph, edge.id);
-  return `<div class="inspector-content"><div class="inspector-kicker edge">${icon("branch", 14)}inference</div><h2>${escapeHtml(edge.method)}</h2>${copyId(edge.id)}${detail("Requires all", linkList("", sources, "node"))}${detail("Concludes", linkList("", target ? [target] : [], "node"))}${detail("Justification", mathHtml(edge.justification))}${edge.obligations ? detail("Obligations", mathHtml(formatValue(edge.obligations))) : ""}${theorems.length ? detail("Theorems", theorems.map((theorem) => `<article class="theorem-card"><strong>${escapeHtml(theorem.id)}</strong><span class="math-text">${mathHtml(theorem.statement)}</span>${theorem.source ? `<small>${escapeHtml(theorem.source)}</small>` : ""}</article>`).join("")) : ""}${mistakes.length ? detail("Known mistakes", mistakes.map((mistake) => `<article class="mistake-card"><span>${icon("warning", 14)}${escapeHtml(mistake.category)}</span><span class="math-text">${mathHtml(mistake.pattern)}</span><small>${escapeHtml(mistake.defect)}</small></article>`).join("")) : ""}</div>`;
+  return `<div class="inspector-content"><div class="inspector-kicker edge">${icon("branch", 14)}inference</div><h2>${escapeHtml(edge.method)}</h2>${copyId(edge.id)}${detail("Requires all", linkList("", sources, "node"))}${detail("Concludes", linkList("", target ? [target] : [], "node"))}${detail("Justification", mathHtml(edge.justification))}${edge.obligations ? detail("Obligations", mathHtml(formatValue(edge.obligations))) : ""}${theorems.length ? detail("Theorems", theorems.map((theorem) => `<article class="theorem-card"><strong>${escapeHtml(theorem.id)}</strong><span class="math-text">${mathHtml(theorem.statement)}</span>${Array.isArray(theorem.required_hypotheses) && theorem.required_hypotheses.length ? `<div class="hypotheses-list"><strong>Required hypotheses</strong>${theorem.required_hypotheses.map((h) => `<span class="math-text">${mathHtml(h)}</span>`).join("")}</div>` : ""}${theorem.source ? `<small>${escapeHtml(theorem.source)}</small>` : ""}</article>`).join("")) : ""}${mistakes.length ? detail("Known mistakes", mistakes.map((mistake) => `<article class="mistake-card"><span>${icon("warning", 14)}${escapeHtml(mistake.category)}</span><span class="math-text">${mathHtml(mistake.pattern)}</span><small>${mathHtml(mistake.defect)}</small></article>`).join("")) : ""}</div>`;
 }
 
 function detail(title, content) { return `<section class="detail-block"><h3>${escapeHtml(title)}</h3>${content}</section>`; }
@@ -280,32 +281,7 @@ shell.addEventListener("dragleave", (event) => { if (!shell.contains(event.relat
 shell.addEventListener("drop", (event) => { event.preventDefault(); overlay.hidden = true; loadFile(event.dataTransfer.files[0]); });
 window.addEventListener("resize", () => { if (window.innerWidth > 760 && state.mobilePanel) { state.mobilePanel = null; render(); } });
 
-function mathHtml(value) {
-  const source = String(value ?? "");
-  const delimiter = /\\\[([\s\S]*?)\\\]|\\\(([\s\S]*?)\\\)/g;
-  let html = "";
-  let cursor = 0;
-
-  for (const match of source.matchAll(delimiter)) {
-    html += escapeHtml(source.slice(cursor, match.index)).replace(/\n/g, "<br>");
-    const displayMode = match[1] !== undefined;
-    const tex = displayMode ? match[1] : match[2];
-
-    if (window.katex?.renderToString) {
-      html += window.katex.renderToString(tex, {
-        displayMode,
-        throwOnError: false,
-        strict: "ignore",
-        output: "htmlAndMathml",
-      });
-    } else {
-      html += `<span class="tex-fallback">${escapeHtml(match[0])}</span>`;
-    }
-    cursor = match.index + match[0].length;
-  }
-
-  return html + escapeHtml(source.slice(cursor)).replace(/\n/g, "<br>");
-}
+function mathHtml(value) { return renderMath(value, window.katex); }
 function formatValue(value) { return Array.isArray(value) ? value.join(" · ") : typeof value === "object" ? JSON.stringify(value) : String(value); }
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[character]); }
 function escapeAttribute(value) { return escapeHtml(value).replace(/`/g, "&#096;"); }
