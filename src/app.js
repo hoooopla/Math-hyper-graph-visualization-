@@ -14,6 +14,7 @@ const state = {
   goalId: null,
   view: { x: 0, y: 42, scale: 1 },
   mobilePanel: null,
+  sidebarCollapsed: localStorage.getItem("proof-atlas-sidebar-collapsed") === "true",
 };
 
 root.innerHTML = `
@@ -74,6 +75,7 @@ const fileInput = root.querySelector("#yaml-file");
 const overlay = root.querySelector(".drop-overlay");
 
 function render() {
+  shell.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
   renderHeader();
   renderSidebar();
   renderWorkspace();
@@ -86,6 +88,7 @@ function renderHeader() {
   const valid = state.report.errors.length === 0;
   topbar.innerHTML = `
     <div class="brand-mark">${icon("atlas")}<span>PROOF ATLAS</span><em>01</em></div>
+    <button class="sidebar-toggle" data-action="toggle-sidebar" aria-label="${state.sidebarCollapsed ? "Show left panel" : "Hide left panel"}" aria-pressed="${state.sidebarCollapsed}">${icon(state.sidebarCollapsed ? "panel-open" : "panel-close")}<span>${state.sidebarCollapsed ? "Show panel" : "Hide panel"}</span></button>
     <div class="file-chip">${icon("file")}<span>${escapeHtml(state.fileName)}</span></div>
     <button type="button" class="status-chip ${valid ? "valid" : "invalid"}" data-select-type="validation" data-select-id="report" aria-label="Inspect structural validation results">
       ${icon(valid ? "shield" : "warning")}<span>${valid ? `Valid · ${state.report.warnings.length} warnings` : `${state.report.errors.length} errors`}</span>
@@ -330,6 +333,12 @@ function applyView() {
 root.addEventListener("click", async (event) => {
   const action = event.target.closest("[data-action]")?.dataset.action;
   if (action === "upload") fileInput.click();
+  if (action === "toggle-sidebar") {
+    state.sidebarCollapsed = !state.sidebarCollapsed;
+    localStorage.setItem("proof-atlas-sidebar-collapsed", String(state.sidebarCollapsed));
+    state.view.x = 0;
+    render();
+  }
   if (action === "clear-search") { state.query = ""; render(); }
   if (action === "example") loadSource(sampleGraphYaml, "example-graph.yaml");
   if (action === "zoom-in") zoom(1.15);
@@ -411,6 +420,8 @@ function icon(name, size = 16) {
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/>',
     plus: '<path d="M12 5v14M5 12h14"/>', minus: '<path d="M5 12h14"/>',
     fit: '<path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/>',
+    "panel-close": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 9l-3 3 3 3"/>',
+    "panel-open": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M12 9l3 3-3 3"/>',
   };
   return `<svg aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths[name] ?? ""}</svg>`;
 }
