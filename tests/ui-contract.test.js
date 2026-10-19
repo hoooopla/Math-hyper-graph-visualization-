@@ -7,3 +7,9 @@ test("the YAML drop overlay is removed from layout when hidden", async () => {
 
   assert.match(css, /\.drop-overlay\[hidden\]\s*\{\s*display:\s*none;\s*\}/);
 });
+
+test("the deployed page cache-busts the overlay fix", async () => {
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+
+  assert.match(html, /styles\.css\?v=drop-overlay-fix/);
+});
