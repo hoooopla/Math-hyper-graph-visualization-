@@ -73,15 +73,16 @@ test("unreachable goals generate a warning rather than a false validation succes
 test("YAML block strings and nested theorem hypotheses are preserved", () => {
   const graph = parseGraphYaml(sampleGraphYaml).graph;
   assert.match(graph.problem.statement, /positive definite Hermitian/);
-  assert.deepEqual(graph.theorems[0].hypotheses, ["The matrices are normal.", "The matrices commute."]);
+  assert.deepEqual(graph.theorems[0].required_hypotheses, ["The matrices are normal.", "The matrices commute."]);
 });
 
-test("generated graphs may use assertion as the node text field", () => {
-  const assertionYaml = sampleGraphYaml.replace(/\n    claim:/g, "\n    assertion:");
+test("legacy claim fields are accepted and normalized to canonical assertion", () => {
+  const assertionYaml = sampleGraphYaml.replace(/\n    assertion:/g, "\n    claim:");
   const result = parseGraphYaml(assertionYaml);
 
   assert.equal(result.errors.length, 0);
-  assert.match(result.graph.nodes[0].claim, /positive definite Hermitian/);
+  assert.match(result.graph.nodes[0].assertion, /positive definite Hermitian/);
+  assert.equal(result.graph.nodes[0].claim, result.graph.nodes[0].assertion);
 });
 
 test("visual nodes and links share one positive canvas coordinate system", () => {
@@ -95,4 +96,27 @@ test("visual nodes and links share one positive canvas coordinate system", () =>
     assert.equal(link.from.x, visual.nodes.find((node) => node.id === link.from.id).x);
     assert.equal(link.to.x, visual.nodes.find((node) => node.id === link.to.id).x);
   }
+});
+
+test("canonical example uses assertion and math notation conventions", () => {
+  const graph = parseGraphYaml(sampleGraphYaml).graph;
+  assert.match(graph.nodes[0].assertion, /\\$A\\$/);
+  assert.match(graph.nodes.find((node) => node.type === "goal").assertion, /\\\\\\[/);
+  assert.equal(graph.theorems[0].required_hypotheses.length, 2);
+});
+
+test("malformed edge dependencies report errors instead of crashing", () => {
+  const graph = parseGraphYaml(sampleGraphYaml).graph;
+  graph.edges[0].from = null;
+  const result = validateGraph(graph);
+  assert(result.errors.some((item) => item.path === "edges[0].from"));
+});
+
+test("incorrect schema versions and mistake categories fail validation", () => {
+  const graph = parseGraphYaml(sampleGraphYaml).graph;
+  graph.schema_version = "2.0";
+  graph.mistakes[0].category = "not_a_category";
+  const result = validateGraph(graph);
+  assert(result.errors.some((item) => item.path === "schema_version"));
+  assert(result.errors.some((item) => item.path === "mistakes[0].category"));
 });
