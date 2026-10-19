@@ -19,6 +19,7 @@ root.innerHTML = `
     <header class="topbar"></header>
     <aside class="sidebar"></aside>
     <section class="workspace"></section>
+    <div class="inspector-resizer" role="separator" aria-label="Resize details panel" aria-orientation="vertical" tabindex="0" aria-valuemin="300" aria-valuemax="900" aria-valuenow="420" title="Drag to resize details panel"></div>
     <aside class="inspector"></aside>
     <nav class="mobile-nav" aria-label="Mobile panels">
       <button data-mobile="sidebar">${icon("layers")} Explore</button>
@@ -34,6 +35,39 @@ const topbar = root.querySelector(".topbar");
 const sidebar = root.querySelector(".sidebar");
 const workspace = root.querySelector(".workspace");
 const inspector = root.querySelector(".inspector");
+const resizer = root.querySelector(".inspector-resizer");
+const savedWidth = Number(localStorage.getItem("proof-atlas-inspector-width"));
+if (savedWidth >= 300 && savedWidth <= 900) setInspectorWidth(savedWidth);
+
+function setInspectorWidth(width) {
+  const max = Math.max(300, window.innerWidth - (window.innerWidth <= 1050 ? 248 : 282) - 300);
+  const value = Math.round(Math.max(300, Math.min(width, Math.min(900, max))));
+  shell.style.setProperty("--inspector-width", `${value}px`);
+  resizer.setAttribute("aria-valuenow", value);
+  localStorage.setItem("proof-atlas-inspector-width", value);
+}
+let resizeStart = null;
+resizer.addEventListener("pointerdown", (event) => {
+  resizeStart = { x: event.clientX, width: inspector.getBoundingClientRect().width };
+  resizer.setPointerCapture(event.pointerId);
+  document.body.classList.add("resizing-inspector");
+});
+resizer.addEventListener("pointermove", (event) => {
+  if (resizeStart) setInspectorWidth(resizeStart.width + resizeStart.x - event.clientX);
+});
+function finishResize() {
+  if (!resizeStart) return;
+  resizeStart = null;
+  document.body.classList.remove("resizing-inspector");
+}
+resizer.addEventListener("pointerup", finishResize);
+resizer.addEventListener("pointercancel", finishResize);
+resizer.addEventListener("keydown", (event) => {
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    event.preventDefault();
+    setInspectorWidth(inspector.getBoundingClientRect().width + (event.key === "ArrowLeft" ? 30 : -30));
+  }
+});
 const fileInput = root.querySelector("#yaml-file");
 const overlay = root.querySelector(".drop-overlay");
 
@@ -150,7 +184,7 @@ function renderInspector() {
 function nodeInspector(graph, node) {
   const incoming = graph.edges.filter((edge) => edge.to === node.id);
   const outgoing = graph.edges.filter((edge) => edge.from.includes(node.id));
-  return `<div class="inspector-content"><div class="inspector-kicker"><span class="type-dot ${node.type}"></span>${node.type} assertion</div><h2 class="math-text">${mathHtml(node.claim)}</h2>${copyId(node.id)}${node.scope ? detail("Scope", mathHtml(formatValue(node.scope))) : ""}${detail("Dependencies", `${linkList("Incoming", incoming, "edge")}${linkList("Outgoing", outgoing, "edge")}`)}</div>`;
+  return `<div class="inspector-content"><div class="inspector-kicker"><span class="type-dot ${node.type}"></span>${node.type} assertion</div><h2 class="math-text">${mathHtml(node.claim)}</h2>${copyId(node.id)}${node.scope ? detail("Scope / local assumptions", mathHtml(formatValue(node.scope)), "important") : ""}${detail("Proof dependencies", `${linkList("Incoming", incoming, "edge")}${linkList("Outgoing", outgoing, "edge")}`)}</div>`;
 }
 
 function edgeInspector(graph, edge) {
@@ -158,10 +192,10 @@ function edgeInspector(graph, edge) {
   const target = graph.nodes.find((node) => node.id === edge.to);
   const theorems = (edge.uses ?? []).map((id) => graph.theorems.find((theorem) => theorem.id === id)).filter(Boolean);
   const mistakes = getRelatedMistakes(graph, edge.id);
-  return `<div class="inspector-content"><div class="inspector-kicker edge">${icon("branch", 14)}inference</div><h2>${escapeHtml(edge.method)}</h2>${copyId(edge.id)}${detail("Requires all", linkList("", sources, "node"))}${detail("Concludes", linkList("", target ? [target] : [], "node"))}${detail("Justification", mathHtml(edge.justification))}${edge.obligations ? detail("Obligations", mathHtml(formatValue(edge.obligations))) : ""}${theorems.length ? detail("Theorems", theorems.map((theorem) => `<article class="theorem-card"><strong>${escapeHtml(theorem.id)}</strong><span class="math-text">${mathHtml(theorem.statement)}</span>${Array.isArray(theorem.required_hypotheses) && theorem.required_hypotheses.length ? `<div class="hypotheses-list"><strong>Required hypotheses</strong>${theorem.required_hypotheses.map((h) => `<span class="math-text">${mathHtml(h)}</span>`).join("")}</div>` : ""}${theorem.source ? `<small>${escapeHtml(theorem.source)}</small>` : ""}</article>`).join("")) : ""}${mistakes.length ? detail("Known mistakes", mistakes.map((mistake) => `<article class="mistake-card"><span>${icon("warning", 14)}${escapeHtml(mistake.category)}</span><span class="math-text">${mathHtml(mistake.pattern)}</span><small>${mathHtml(mistake.defect)}</small></article>`).join("")) : ""}</div>`;
+  return `<div class="inspector-content"><div class="inspector-kicker edge">${icon("branch", 14)}inference</div><h2>${escapeHtml(edge.method)}</h2>${copyId(edge.id)}${detail("Requires all premises", linkList("", sources, "node"), "important")}${detail("Conclusion", linkList("", target ? [target] : [], "node"), "important")}${detail("Why the inference holds", mathHtml(edge.justification), "important")}${edge.obligations ? detail("Check these obligations", mathHtml(formatValue(edge.obligations)), "important") : ""}${theorems.length ? detail("Theorems", theorems.map((theorem) => `<article class="theorem-card"><strong>${escapeHtml(theorem.id)}</strong><span class="math-text">${mathHtml(theorem.statement)}</span>${Array.isArray(theorem.required_hypotheses) && theorem.required_hypotheses.length ? `<div class="hypotheses-list"><strong>Required hypotheses</strong>${theorem.required_hypotheses.map((h) => `<span class="math-text">${mathHtml(h)}</span>`).join("")}</div>` : ""}${theorem.source ? `<small>${escapeHtml(theorem.source)}</small>` : ""}</article>`).join("")) : ""}${mistakes.length ? detail("Known mistakes", mistakes.map((mistake) => `<article class="mistake-card"><span>${icon("warning", 14)}${escapeHtml(mistake.category)}</span><span class="math-text">${mathHtml(mistake.pattern)}</span><small>${mathHtml(mistake.defect)}</small></article>`).join("")) : ""}</div>`;
 }
 
-function detail(title, content) { return `<section class="detail-block"><h3>${escapeHtml(title)}</h3>${content}</section>`; }
+function detail(title, content, priority = "") { return `<section class="detail-block ${priority}"><h3>${escapeHtml(title)}</h3>${content}</section>`; }
 function copyId(id) { return `<button class="copy-id" data-copy="${escapeAttribute(id)}">#${escapeHtml(id)}</button>`; }
 function linkList(label, items, type) {
   return `<div class="link-list">${label ? `<small>${label}</small>` : ""}${items.length ? items.map((item) => `<button data-select-type="${type}" data-select-id="${escapeAttribute(item.id)}"><span>${escapeHtml(item.method || item.id)}</span>${icon("right", 14)}</button>`).join("") : `<em>None</em>`}</div>`;
@@ -279,7 +313,7 @@ fileInput.addEventListener("change", () => loadFile(fileInput.files[0]));
 shell.addEventListener("dragover", (event) => { event.preventDefault(); overlay.hidden = false; });
 shell.addEventListener("dragleave", (event) => { if (!shell.contains(event.relatedTarget)) overlay.hidden = true; });
 shell.addEventListener("drop", (event) => { event.preventDefault(); overlay.hidden = true; loadFile(event.dataTransfer.files[0]); });
-window.addEventListener("resize", () => { if (window.innerWidth > 760 && state.mobilePanel) { state.mobilePanel = null; render(); } });
+window.addEventListener("resize", () => { if (window.innerWidth > 760) setInspectorWidth(inspector.getBoundingClientRect().width); if (window.innerWidth > 760 && state.mobilePanel) { state.mobilePanel = null; render(); } });
 
 function mathHtml(value) { return renderMath(value, window.katex); }
 function formatValue(value) { return Array.isArray(value) ? value.join(" · ") : typeof value === "object" ? JSON.stringify(value) : String(value); }
