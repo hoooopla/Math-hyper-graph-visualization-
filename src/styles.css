@@ -154,6 +154,7 @@ button { color: inherit; }
 .validation-list span { color: #b6abb0; }
 
 .drop-overlay { position: fixed; z-index: 100; inset: 12px; display: grid; place-content: center; justify-items: center; gap: 8px; border: 1px dashed var(--accent); border-radius: 10px; background: rgba(8, 12, 10, .93); color: var(--accent); pointer-events: none; }
+.drop-overlay[hidden] { display: none; }
 .drop-overlay strong { margin-top: 8px; font-size: 16px; }
 .drop-overlay span { color: #75806a; font-size: 11px; }
 .mobile-nav, .mobile-close { display: none; }
