@@ -22,6 +22,6 @@ test("the deployed page loads the KaTeX renderer and cache-busts the app", async
   assert.match(html, /katex@0\.16\.11\/dist\/katex\.min\.js/);
   assert.match(html, /app\.js\?v=katex-rendering-v3/);
   assert.match(app, /graph-core\.js\?v=layout-and-schema-v2/);
-  assert.match(app, /window\.katex\.renderToString/);
-  assert.match(app, /displayMode/);
+  assert.match(app, /import \{ renderMath \} from/);
+  assert.match(app, /renderMath\(value, window\.katex\)/);
 });
