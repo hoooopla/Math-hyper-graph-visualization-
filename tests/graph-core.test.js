@@ -100,11 +100,10 @@ test("visual nodes and links share one positive canvas coordinate system", () =>
 
 test("canonical example uses assertion and math notation conventions", () => {
   const graph = parseGraphYaml(sampleGraphYaml).graph;
-  assert.match(graph.nodes[0].assertion, /\\$A\\$/);
-  assert.match(graph.nodes.find((node) => node.type === "goal").assertion, /\\\\\\[/);
+  assert(graph.nodes[0].assertion.includes("$A$"));
+  assert(graph.nodes.find((node) => node.type === "goal").assertion.includes("\\["));
   assert.equal(graph.theorems[0].required_hypotheses.length, 2);
 });
-
 test("malformed edge dependencies report errors instead of crashing", () => {
   const graph = parseGraphYaml(sampleGraphYaml).graph;
   graph.edges[0].from = null;
