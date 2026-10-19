@@ -184,16 +184,64 @@ function graphWorldHtml(visual, selectedPath) {
 function renderInspector() {
   const graph = state.report.graph;
   const selection = state.selection;
+  const close = `<button class="mobile-close" data-mobile="close" aria-label="Close details">${icon("close")}</button>`;
+  if (selection?.type === "validation") {
+    inspector.innerHTML = close + validationInspectorHtml();
+    return;
+  }
   if (!graph || !selection) {
-    inspector.innerHTML = `<button class="mobile-close" data-mobile="close">${icon("close")}</button><div class="inspector-empty">${icon("fit", 22)}<p>Select an assertion or inference to inspect it.</p></div>`;
+    inspector.innerHTML = close + `<div class="inspector-empty"><p>Select a reference card, assertion or inference to inspect it.</p></div>`;
     return;
   }
-  const item = selection.type === "node" ? graph.nodes?.find((node) => node.id === selection.id) : graph.edges?.find((edge) => edge.id === selection.id);
+  const api = { mathHtml, escapeHtml, detail };
+  if (selection.type === "context") {
+    inspector.innerHTML = close + contextInspectorHtml(graph, selection.id, api);
+    return;
+  }
+  if (selection.type === "theorem") {
+    inspector.innerHTML = close + theoremInspectorHtml(graph, selection.id, api);
+    return;
+  }
+  if (selection.type === "mistake") {
+    inspector.innerHTML = close + mistakeInspector(graph, selection.id);
+    return;
+  }
+  const item = selection.type === "node"
+    ? graph.nodes?.find((node) => node.id === selection.id)
+    : graph.edges?.find((edge) => edge.id === selection.id);
   if (!item) {
-    inspector.innerHTML = `<button class="mobile-close" data-mobile="close">${icon("close")}</button><div class="inspector-empty"><p>This item is hidden or unavailable.</p></div>`;
+    inspector.innerHTML = close + `<div class="inspector-empty"><p>This item is hidden or unavailable.</p></div>`;
     return;
   }
-  inspector.innerHTML = `<button class="mobile-close" data-mobile="close">${icon("close")}</button>${selection.type === "node" ? nodeInspector(graph, item) : edgeInspector(graph, item)}`;
+  inspector.innerHTML = close + (selection.type === "node" ? nodeInspector(graph, item) : edgeInspector(graph, item));
+}
+
+function validationInspectorHtml() {
+  const { errors = [], warnings = [], graph } = state.report;
+  const rows = (items) => items.length
+    ? `<div class="validation-list inspector-validation-list">${items.map((item) => `<div><code>${escapeHtml(item.path)}</code><span>${escapeHtml(item.message)}</span></div>`).join("")}</div>`
+    : `<span class="empty-note">None</span>`;
+  return `<div class="inspector-content context-inspector">
+    <div class="inspector-kicker">Structural validation</div>
+    <h2>${errors.length ? "Action required" : "Graph validation"}</h2>
+    ${detail("Errors · " + errors.length, rows(errors), "important")}
+    ${detail("Warnings · " + warnings.length, rows(warnings), "important")}
+    ${detail("Schema", `<code>${escapeHtml(graph?.schema_version ?? "Unknown")}</code>`)}
+    <p class="validation-disclaimer">Schema, reference and reachability checks do not establish mathematical correctness.</p>
+  </div>`;
+}
+
+function mistakeInspector(graph, id) {
+  const mistake = graph.mistakes?.find((item) => item.id === id);
+  if (!mistake) return `<div class="inspector-empty"><p>Mistake reference not found.</p></div>`;
+  const related = (mistake.related_edges ?? [])
+    .map((edgeId) => graph.edges.find((edge) => edge.id === edgeId)).filter(Boolean);
+  return `<div class="inspector-content"><div class="inspector-kicker">Common mistake</div>
+    <h2>${escapeHtml(mistake.category)}</h2>${copyId(mistake.id)}
+    ${detail("Pattern", mathHtml(mistake.pattern), "important")}
+    ${detail("Why it fails", mathHtml(mistake.defect), "important")}
+    ${detail("Related inferences", linkList("", related, "edge"))}
+  </div>`;
 }
 
 function nodeInspector(graph, node) {
@@ -207,7 +255,7 @@ function edgeInspector(graph, edge) {
   const target = graph.nodes.find((node) => node.id === edge.to);
   const theorems = (edge.uses ?? []).map((id) => graph.theorems.find((theorem) => theorem.id === id)).filter(Boolean);
   const mistakes = getRelatedMistakes(graph, edge.id);
-  return `<div class="inspector-content"><div class="inspector-kicker edge">${icon("branch", 14)}inference</div><h2>${escapeHtml(edge.method)}</h2>${copyId(edge.id)}${detail("From · all required", linkList("", sources, "node"), "important")}${detail("To", linkList("", target ? [target] : [], "node"), "important")}${detail("Justification", mathHtml(edge.justification), "important")}${edge.obligations ? detail("Check these obligations", mathHtml(formatValue(edge.obligations)), "important") : ""}${theorems.length ? detail("Theorems", theorems.map((theorem) => `<article class="theorem-card"><strong>${escapeHtml(theorem.id)}</strong><span class="math-text">${mathHtml(theorem.statement)}</span>${Array.isArray(theorem.required_hypotheses) && theorem.required_hypotheses.length ? `<div class="hypotheses-list"><strong>Required hypotheses</strong>${theorem.required_hypotheses.map((h) => `<span class="math-text">${mathHtml(h)}</span>`).join("")}</div>` : ""}${theorem.source ? `<small>${escapeHtml(theorem.source)}</small>` : ""}</article>`).join("")) : ""}${mistakes.length ? detail("Common mistakes", mistakes.map((mistake) => `<article class="mistake-card"><span>${icon("warning", 14)}${escapeHtml(mistake.category)}</span><span class="math-text">${mathHtml(mistake.pattern)}</span><small>${mathHtml(mistake.defect)}</small></article>`).join("")) : ""}</div>`;
+  return `<div class="inspector-content"><div class="inspector-kicker edge">${icon("branch", 14)}inference</div><h2>${escapeHtml(edge.method)}</h2>${copyId(edge.id)}${detail("From · all required", linkList("", sources, "node"), "important")}${detail("To", linkList("", target ? [target] : [], "node"), "important")}${detail("Justification", mathHtml(edge.justification), "important")}${edge.obligations ? detail("Check these obligations", mathHtml(formatValue(edge.obligations)), "important") : ""}${edge.scope ? detail("Scope / local assumptions", mathHtml(formatValue(edge.scope)), "important") : ""}${theorems.length ? detail("Theorems", theorems.map((theorem) => `<article class="theorem-card"><button type="button" class="reference-link" data-select-type="theorem" data-select-id="${escapeAttribute(theorem.id)}">${escapeHtml(theorem.id)} ↗</button><span class="math-text">${mathHtml(theorem.statement)}</span>${Array.isArray(theorem.required_hypotheses) && theorem.required_hypotheses.length ? `<div class="hypotheses-list"><strong>Required hypotheses</strong>${theorem.required_hypotheses.map((h) => `<span class="math-text">${mathHtml(h)}</span>`).join("")}</div>` : ""}${theorem.source ? `<small>${escapeHtml(theorem.source)}</small>` : ""}</article>`).join("")) : ""}${mistakes.length ? detail("Common mistakes", mistakes.map((mistake) => `<article class="mistake-card"><span>${icon("warning", 14)}${escapeHtml(mistake.category)}</span><button type="button" class="reference-link mistake-id" data-select-type="mistake" data-select-id="${escapeAttribute(mistake.id)}">${escapeHtml(mistake.id)} ↗</button><span class="math-text">${mathHtml(mistake.pattern)}</span><small class="math-text">${mathHtml(mistake.defect)}</small><div class="reference-related"><strong>Related inferences</strong>${linkList("", (mistake.related_edges ?? []).map((id) => graph.edges.find((item) => item.id === id)).filter(Boolean), "edge")}</div></article>`).join("")) : ""}</div>`;
 }
 
 function detail(title, content, priority = "") { return `<section class="detail-block ${priority}"><h3>${escapeHtml(title)}</h3>${content}</section>`; }
