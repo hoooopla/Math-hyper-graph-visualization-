@@ -12,8 +12,21 @@ export function parseGraphYaml(source) {
   } catch (error) {
     return { graph: null, errors: [{ path: "yaml", message: error.message }], warnings: [] };
   }
+  graph = normalizeGraph(graph);
   const report = validateGraph(graph);
   return { graph, ...report };
+}
+
+function normalizeGraph(graph) {
+  if (!isObject(graph) || !Array.isArray(graph.nodes)) return graph;
+  return {
+    ...graph,
+    nodes: graph.nodes.map((node) => {
+      if (!isObject(node) || typeof node.claim === "string") return node;
+      if (typeof node.assertion !== "string") return node;
+      return { ...node, claim: node.assertion };
+    }),
+  };
 }
 
 export function validateGraph(graph) {
@@ -191,22 +204,27 @@ export function layoutGraph(nodes, edges) {
 
   const xGap = 284;
   const yGap = 170;
-  const positioned = [];
+  const unpositioned = [];
   let maxWidth = 0;
   [...layers.entries()].sort(([a], [b]) => a - b).forEach(([layer, layerNodes]) => {
     const width = Math.max(0, (layerNodes.length - 1) * xGap);
     maxWidth = Math.max(maxWidth, width);
     layerNodes.forEach((node, index) => {
-      positioned.push({ ...node, x: index * xGap - width / 2, y: layer * yGap + 72 });
+      unpositioned.push({ ...node, centeredX: index * xGap - width / 2, y: layer * yGap + 72 });
     });
   });
+  const visualWidth = Math.max(760, maxWidth + 420);
+  const positioned = unpositioned.map(({ centeredX, ...node }) => ({
+    ...node,
+    x: centeredX + visualWidth / 2,
+  }));
   const positionById = new Map(positioned.map((node) => [node.id, node]));
   const links = [];
   edges.forEach((edge) => {
     edge.from.forEach((source) => links.push({ id: `${source}--${edge.id}`, from: positionById.get(source), to: positionById.get(edge.id), edgeId: edge.id }));
     links.push({ id: `${edge.id}--${edge.to}`, from: positionById.get(edge.id), to: positionById.get(edge.to), edgeId: edge.id });
   });
-  return { nodes: positioned, links, width: Math.max(760, maxWidth + 420), height: Math.max(560, (Math.max(0, ...positioned.map((node) => node.layer)) + 1) * yGap + 180) };
+  return { nodes: positioned, links, width: visualWidth, height: Math.max(560, (Math.max(0, ...positioned.map((node) => node.layer)) + 1) * yGap + 180) };
 }
 
 export function enumerateProofPaths(graph, goalId, limit = 12) {

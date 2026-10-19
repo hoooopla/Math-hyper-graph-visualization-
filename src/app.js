@@ -128,7 +128,7 @@ function graphWorldHtml(visual, selectedPath) {
     const selected = state.selection?.type === "node" && state.selection.id === node.id;
     return `<button class="assertion-node ${node.type} ${selected ? "selected" : ""} ${activeNode(node.id) ? "" : "dimmed"}" style="${style}" data-select-type="node" data-select-id="${escapeAttribute(node.id)}"><span class="node-topline"><em>${node.type}</em><small>${escapeHtml(node.id)}</small></span><span class="node-claim math-text">${mathHtml(node.claim)}</span></button>`;
   }).join("");
-  return `<div class="graph-world" style="width:${visual.width}px;height:${visual.height}px"><svg class="links" width="${visual.width}" height="${visual.height}" viewBox="${-visual.width / 2} 0 ${visual.width} ${visual.height}"><defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker></defs>${links}</svg>${nodes}</div>`;
+  return `<div class="graph-world" style="width:${visual.width}px;height:${visual.height}px"><svg class="links" width="${visual.width}" height="${visual.height}" viewBox="0 0 ${visual.width} ${visual.height}"><defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker></defs>${links}</svg>${nodes}</div>`;
 }
 
 function renderInspector() {
@@ -213,7 +213,7 @@ function fitGraph(visual) {
   const rect = workspace.querySelector(".graph-viewport")?.getBoundingClientRect();
   if (!rect) return;
   state.view.scale = Math.max(.35, Math.min(1.05, (rect.width - 56) / visual.width, (rect.height - 74) / visual.height));
-  state.view.x = rect.width / 2;
+  state.view.x = (rect.width - visual.width * state.view.scale) / 2;
   state.view.y = 42;
   applyView();
 }

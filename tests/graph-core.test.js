@@ -75,3 +75,24 @@ test("YAML block strings and nested theorem hypotheses are preserved", () => {
   assert.match(graph.problem.statement, /positive definite Hermitian/);
   assert.deepEqual(graph.theorems[0].hypotheses, ["The matrices are normal.", "The matrices commute."]);
 });
+
+test("generated graphs may use assertion as the node text field", () => {
+  const assertionYaml = sampleGraphYaml.replace(/\n    claim:/g, "\n    assertion:");
+  const result = parseGraphYaml(assertionYaml);
+
+  assert.equal(result.errors.length, 0);
+  assert.match(result.graph.nodes[0].claim, /positive definite Hermitian/);
+});
+
+test("visual nodes and links share one positive canvas coordinate system", () => {
+  const graph = parseGraphYaml(sampleGraphYaml).graph;
+  const visual = buildVisualGraph(graph);
+
+  for (const node of visual.nodes) {
+    assert(node.x >= 0 && node.x <= visual.width);
+  }
+  for (const link of visual.links) {
+    assert.equal(link.from.x, visual.nodes.find((node) => node.id === link.from.id).x);
+    assert.equal(link.to.x, visual.nodes.find((node) => node.id === link.to.id).x);
+  }
+});
