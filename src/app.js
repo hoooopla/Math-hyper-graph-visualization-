@@ -306,7 +306,7 @@ function bindPanZoom(visual) {
   viewport.addEventListener("pointerup", () => { pan = null; });
   viewport.addEventListener("wheel", (event) => {
     event.preventDefault();
-    zoom(event.deltaY > 0 ? .975 : 1.025);
+    zoom(event.deltaY > 0 ? .975 : 1.025, event.clientX, event.clientY);
   }, { passive: false });
   workspace.querySelector('[data-action="fit"]')?.addEventListener("click", () => fitGraph(visual));
 }
@@ -320,8 +320,21 @@ function fitGraph(visual) {
   applyView();
 }
 
-function zoom(factor) {
-  state.view.scale = Math.min(1.9, Math.max(.3, state.view.scale * factor));
+function zoom(factor, clientX, clientY) {
+  const viewport = workspace.querySelector(".graph-viewport");
+  const rect = viewport?.getBoundingClientRect();
+  const oldScale = state.view.scale;
+  const newScale = Math.min(1.9, Math.max(.3, oldScale * factor));
+  if (newScale === oldScale) return;
+
+  const anchorX = rect && Number.isFinite(clientX) ? clientX - rect.left : (rect?.width ?? 0) / 2;
+  const anchorY = rect && Number.isFinite(clientY) ? clientY - rect.top : (rect?.height ?? 0) / 2;
+  const worldX = (anchorX - state.view.x) / oldScale;
+  const worldY = (anchorY - state.view.y) / oldScale;
+
+  state.view.scale = newScale;
+  state.view.x = anchorX - worldX * newScale;
+  state.view.y = anchorY - worldY * newScale;
   applyView();
 }
 
