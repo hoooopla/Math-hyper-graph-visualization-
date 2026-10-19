@@ -1,4 +1,4 @@
-import { parseYaml } from "./yaml-lite.js";
+import { parseYaml } from "./yaml-lite.js?v=canonical-parser-v1";
 
 export const NODE_TYPES = ["premise", "milestone", "goal"];
 
