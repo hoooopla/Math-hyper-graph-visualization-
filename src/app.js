@@ -1,4 +1,4 @@
-import { buildVisualGraph, enumerateProofPaths, getRelatedMistakes, NODE_TYPES, parseGraphYaml } from "./graph-core.js?v=canonical-schema-v1";
+import { buildVisualGraph, enumerateProofPaths, getRelatedMistakes, NODE_TYPES, parseGraphYaml } from "./graph-core.js?v=cycle-safe-layout-v1";
 import { sampleGraphYaml } from "./sampleGraph.js?v=canonical-sample-v1";
 import { renderMath } from "./math-render.js";
 import { contextCardsHtml, contextInspectorHtml, theoremInspectorHtml } from "./context-ui.js";
