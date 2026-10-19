@@ -27,12 +27,12 @@ This viewer also bundles a copy at `schema/solution-graph.schema.json`.
 - Use `schema_version: "1.0"`, `nodes[].assertion`, and
   `theorems[].required_hypotheses`.
 - Write **inline LaTeX** as `$A+B=C$`.
-- Write **display LaTeX** as `\\[ A+B=C \\]` in YAML literal blocks (`|-`).
+- Write **display LaTeX** as `\[ A+B=C \]` in YAML literal blocks (`|-`).
 - Use YAML single-quoted scalars or literal blocks so backslashes survive
   without double-escaping.
 - Inferences are AND-hyperedges: `edges[].from` is a nonempty list of
   prerequisite node IDs, `edges[].to` is one conclusion.
-- `claim` and `\\( ... \\)` remain accepted only for legacy uploads.
+- `claim` and `\( ... \)` remain accepted only for legacy uploads.
 - The full mathematical statement, edge justification, theorem hypotheses,
   and known mistakes render in the clickable dark-mode inspector.
 
