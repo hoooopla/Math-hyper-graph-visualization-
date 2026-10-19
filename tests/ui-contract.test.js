@@ -13,3 +13,11 @@ test("the deployed page cache-busts the overlay fix", async () => {
 
   assert.match(html, /styles\.css\?v=drop-overlay-fix/);
 });
+
+test("the deployed page loads matching versions of the layout modules", async () => {
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const app = await readFile(new URL("../src/app.js", import.meta.url), "utf8");
+
+  assert.match(html, /app\.js\?v=layout-and-schema-v2/);
+  assert.match(app, /graph-core\.js\?v=layout-and-schema-v2/);
+});

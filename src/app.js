@@ -1,4 +1,4 @@
-import { buildVisualGraph, enumerateProofPaths, getRelatedMistakes, NODE_TYPES, parseGraphYaml } from "./graph-core.js";
+import { buildVisualGraph, enumerateProofPaths, getRelatedMistakes, NODE_TYPES, parseGraphYaml } from "./graph-core.js?v=layout-and-schema-v2";
 import { sampleGraphYaml } from "./sampleGraph.js";
 const root = document.querySelector("#root");
 const TYPE_LABELS = { premise: "Premises", milestone: "Milestones", goal: "Goals" };
