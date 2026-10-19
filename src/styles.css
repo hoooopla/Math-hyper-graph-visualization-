@@ -335,3 +335,47 @@ button { color: inherit; }
   margin: 0 14px 14px;
   padding-top: 12px;
 }
+
+/* Collapsible exploration panel. */
+.sidebar-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0e1118;
+  color: #929baa;
+  font-size: 11px;
+  cursor: pointer;
+}
+.sidebar-toggle:hover,
+.sidebar-toggle:focus-visible {
+  border-color: #50652e;
+  color: var(--accent);
+  outline: none;
+}
+.sidebar-toggle span { white-space: nowrap; }
+.app-shell.sidebar-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr) 8px var(--inspector-width);
+}
+.app-shell.sidebar-collapsed .sidebar {
+  visibility: hidden;
+  overflow: hidden;
+  border-right: 0;
+}
+@media (max-width: 1050px) {
+  .app-shell.sidebar-collapsed {
+    grid-template-columns: 0 minmax(0, 1fr) 8px min(var(--inspector-width), 42vw);
+  }
+  .sidebar-toggle span { display: none; }
+}
+@media (max-width: 760px) {
+  .sidebar-toggle { display: none; }
+  .app-shell.sidebar-collapsed {
+    grid-template: 54px calc(100vh - 106px) 52px / 1fr;
+    grid-template-areas: "topbar" "workspace" "mobile-nav";
+  }
+  .app-shell.sidebar-collapsed .sidebar { visibility: visible; overflow: auto; }
+}
