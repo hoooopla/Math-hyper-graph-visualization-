@@ -1,5 +1,5 @@
 Set up my own Math Homework Audit workspace from the PUBLIC repository:
-https://github.com/hoooopla/Math-hyper-graph-visualization- (main).
+https://github.com/hoooopla/proof-atlas (main).
 
 Read its AGENTS.md, SCHEMA.md, schema/solution-graph.schema.json,
 prompts/generate-solution-graph.md, prompts/verify-solution-graph.md,
@@ -25,6 +25,6 @@ independently reverify affected mathematics, validate the YAML, and
 propose graph.yaml and verification.md for each problem in a GitHub PR
 in MY repository. Do not merge mathematical changes without approval.
 
-I will review graphs at https://hoooopla.github.io/Math-hyper-graph-visualization-/
+I will review graphs at https://hoooopla.github.io/proof-atlas/
 Do not generate visualization.md or audit student answers unless asked.
 Do not claim tests passed unless executed.

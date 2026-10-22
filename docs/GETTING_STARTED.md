@@ -1,10 +1,10 @@
 # Start Proof Atlas with GPT Work
 
-The public [Proof Atlas repository](https://github.com/hoooopla/Math-hyper-graph-visualization-) contains the whole workflow. **Every instructor uses a separate repository** for their assignments and graphs.
+The public [Proof Atlas repository](https://github.com/hoooopla/proof-atlas) contains the whole workflow. **Every instructor uses a separate repository** for their assignments and graphs.
 
 ## Option A — GPT Work (recommended)
 
-1. Visit [Proof Atlas](https://hoooopla.github.io/Math-hyper-graph-visualization-/), click **Start Workflow**, and copy the instructions. You can also copy [the canonical starter prompt](../prompts/start-with-gpt-work.md).
+1. Visit [Proof Atlas](https://hoooopla.github.io/proof-atlas/), click **Start Workflow**, and copy the instructions. You can also copy [the canonical starter prompt](../prompts/start-with-gpt-work.md).
 2. Open GPT Work. Grant its GitHub integration access to **your own** repository and attach a problem PDF. Work may create a private repo with your permission if that capability is available; otherwise, create one yourself and share its URL with Work.
 3. Work copies the [workspace manifest](../templates/instructor-workspace/manifest.json)'s specified workflow files from this public source, and validates the included synthetic example.
 4. Work independently analyzes the problems and **stops before committing graph YAML** to ask you which theorems may be **Cited**, must be **Derived**, or are **Excluded**, and which steps need explicit justification.
@@ -24,7 +24,7 @@ The script writes an independent starter into a **new directory** and refuses to
 
 ## Reviewing solution graphs
 
-Open [Proof Atlas](https://hoooopla.github.io/Math-hyper-graph-visualization-/) and use **Open YAML** to select `graph.yaml` from your computer. The viewer supports editing, verification marks, version comparison, and change-request export to GPT Work.
+Open [Proof Atlas](https://hoooopla.github.io/proof-atlas/) and use **Open YAML** to select `graph.yaml` from your computer. The viewer supports editing, verification marks, version comparison, and change-request export to GPT Work.
 
 The canonical graph format is in [SCHEMA.md](../SCHEMA.md). Each problem maintains only `graph.yaml` and `verification.md`. Do not create `visualization.md` or audit student submissions unless explicitly instructed.
 

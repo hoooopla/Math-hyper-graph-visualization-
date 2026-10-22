@@ -2,7 +2,7 @@
 
 **Proof Atlas** is a public, browser-based solution hypergraph viewer/editor **and** the canonical GPT Work workflow for independently developing, mathematically verifying, and reviewing solution graphs.
 
-[Open Proof Atlas](https://hoooopla.github.io/Math-hyper-graph-visualization-/) · [Getting started](docs/GETTING_STARTED.md) · [AI generation workflow](prompts/generate-solution-graph.md) · [Verification workflow](prompts/verify-solution-graph.md)
+[Open Proof Atlas](https://hoooopla.github.io/proof-atlas/) · [Getting started](docs/GETTING_STARTED.md) · [AI generation workflow](prompts/generate-solution-graph.md) · [Verification workflow](prompts/verify-solution-graph.md)
 
 ## Start with your own GPT Work
 
