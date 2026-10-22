@@ -576,6 +576,8 @@ function loadSource(source, name) {
 }
 
 function activateDocument(key) {
+  state.inspectorMode = "read";
+  state.commentComposerOpen = false;
   const current = activeDoc();
   if (current) { if (state.selection?.type !== "difference") current.selection = state.selection; current.view = { ...state.view }; current.goalId = state.goalId; }
   const doc = state.documents.find((entry) => entry.key === key);
@@ -602,11 +604,14 @@ function updateField(input) {
   const target = kind === "problem" ? graph.problem : graph[kind]?.find((item) => item.id === id);
   if (!target) return;
   const old = target[field];
-  const value = Array.isArray(old) || field === "required_hypotheses"
+  const value = Array.isArray(old) || ["required_hypotheses", "from", "uses", "obligations"].includes(field)
     ? input.value.split("\n").map((line) => line.trim()).filter(Boolean) : input.value;
   if (JSON.stringify(old) === JSON.stringify(value)) return;
   target[field] = value;
-  if (kind === "nodes" && field === "claim") target.assertion = value;
+  if (kind === "nodes" && (field === "claim" || field === "assertion")) {
+    target.assertion = value;
+    target.claim = value; // Legacy viewer alias; assertion remains the canonical YAML field.
+  }
   doc.report = { graph, ...validateGraph(graph) };
   state.report = doc.report;
   doc.reviewed.clear();
@@ -701,6 +706,22 @@ root.addEventListener("click", async (event) => {
     }
     return;
   }
+  if (action === "inspector-mode") {
+    state.inspectorMode = event.target.closest("[data-mode]")?.dataset.mode === "edit" ? "edit" : "read";
+    state.commentComposerOpen = false;
+    inspector.scrollTop = 0;
+    renderInspector();
+    return;
+  }
+  if (action === "inspector-comment") {
+    state.commentComposerOpen = !state.commentComposerOpen;
+    renderInspector();
+    if (state.commentComposerOpen) {
+      inspector.querySelector("#inspector-comments")?.scrollIntoView({ block: "nearest" });
+      inspector.querySelector("[data-comment-text]")?.focus();
+    }
+    return;
+  }
   if (action === "upload") fileInput.click();
   if (action === "compare") {
     state.exportOpen = false;
@@ -718,7 +739,7 @@ root.addEventListener("click", async (event) => {
   const tab = event.target.closest("[data-tab]");
   if (tab) { state.compare = null; activateDocument(tab.dataset.tab); return; }
   const difference = event.target.closest("[data-difference]");
-  if (difference) { state.selection = { type: "difference", id: difference.dataset.difference }; if (window.innerWidth <= 760) { state.mobilePanel = "inspector"; inspector.classList.add("mobile-open"); } renderInspector(); workspace.querySelectorAll(".review-row").forEach((row) => row.classList.toggle("selected", row === difference)); return; }
+  if (difference) { state.inspectorMode = "read"; state.commentComposerOpen = false; state.selection = { type: "difference", id: difference.dataset.difference }; if (window.innerWidth <= 760) { state.mobilePanel = "inspector"; inspector.classList.add("mobile-open"); } renderInspector(); workspace.querySelectorAll(".review-row").forEach((row) => row.classList.toggle("selected", row === difference)); return; }
   const review = event.target.closest("[data-review]");
   if (review) {
     const revised = state.documents.find((doc) => doc.key === state.compare.after);
@@ -732,6 +753,7 @@ root.addEventListener("click", async (event) => {
     if (text) {
       const [type, ...id] = addComment.dataset.addComment.split(":");
       activeDoc().comments.push({ key: String(Date.now()) + Math.random(), type, id: id.join(":"), field: inspector.querySelector("[data-comment-field]").value, text });
+      state.commentComposerOpen = false;
       renderTabs(); renderInspector();
     }
     return;
@@ -751,6 +773,9 @@ root.addEventListener("click", async (event) => {
   if (action === "zoom-out") zoom(.87);
   const selection = event.target.closest("[data-select-id]");
   if (selection) {
+    state.inspectorMode = "read";
+    state.commentComposerOpen = false;
+    inspector.scrollTop = 0;
     state.selection = { type: selection.dataset.selectType, id: selection.dataset.selectId };
     if (state.selection.type === "edge" || state.selection.type === "node") state.activePath = null;
     if (state.selection.type === "node") {
