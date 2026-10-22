@@ -1,9 +1,9 @@
 Set up my own Math Homework Audit workspace from the PUBLIC repository:
 https://github.com/hoooopla/proof-atlas (main).
 
-Read its AGENTS.md, SCHEMA.md, schema/solution-graph.schema.json,
-prompts/generate-solution-graph.md, prompts/verify-solution-graph.md,
-templates/instructor-workspace/manifest.json and docs/GETTING_STARTED.md.
+Read its AGENTS.md, core/SCHEMA.md, core/schema/solution-graph.schema.json,
+workflow/generate-solution-graph.md, workflow/verify-solution-graph.md,
+templates/instructor-workspace/manifest.json and docs/getting-started.md.
 
 Use my own GitHub repository, preferably PRIVATE for course files. Create one
 with my permission if your GitHub tools can; otherwise ask me for its URL.
