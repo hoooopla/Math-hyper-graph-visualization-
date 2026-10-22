@@ -22,6 +22,8 @@ const state = {
   compare: null,
   exportOpen: false,
   showIds: localStorage.getItem("proof-atlas-show-ids") === "true",
+  inspectorMode: "read",
+  commentComposerOpen: false,
 };
 
 root.innerHTML = `
@@ -292,8 +294,8 @@ function renderInspector() {
   const graph = state.report.graph;
   const selection = state.selection;
   const close = `<button class="mobile-close" data-mobile="close" aria-label="Close details">${icon("close")}</button>`;
-  if (state.selection?.type === "difference" && state.compare) {
-    inspector.innerHTML = close + differenceInspector(state.selection.id);
+  if (selection?.type === "difference" && state.compare) {
+    inspector.innerHTML = close + differenceInspector(selection.id);
     return;
   }
   if (selection?.type === "validation") {
@@ -332,19 +334,80 @@ function editable(kind, id, field, label, value, multiline = true) {
   const attr = `data-edit-kind="${escapeAttribute(kind)}" data-edit-id="${escapeAttribute(id)}" data-edit-field="${escapeAttribute(field)}"`;
   return `<label class="editable-field"><span>${escapeHtml(label)}</span>${multiline ? `<textarea rows="${Math.max(3, Math.min(7, text.split("\n").length + 1))}" ${attr}>${escapeHtml(text)}</textarea>` : `<input value="${escapeAttribute(text)}" ${attr}>`}<div class="edit-preview math-text">${mathHtml(text) || "<em>Empty</em>"}</div></label>`;
 }
+
+function inspectorHeader(kind, title, id, { verification, verified = false, commentType, canEdit = true } = {}) {
+  const editing = state.inspectorMode === "edit";
+  const comments = activeDoc()?.comments?.filter((item) => item.type === commentType && item.id === id).length ?? 0;
+  return `<header class="reading-header">
+    <div class="reading-header-label">${escapeHtml(kind)} <span class="reading-header-id">${copyId(id)}</span></div>
+    <h2>${mathHtml(title)}</h2>
+    <div class="reading-actions">
+      ${verification ? `<label class="reading-verify" title="Mark this ${escapeAttribute(kind.toLowerCase())} as mathematically reviewed"><input type="checkbox" data-verify-${verification}="${escapeAttribute(id)}" ${verified ? "checked" : ""}><span>${verified ? "Verified" : "Verify"}</span></label>` : ""}
+      ${canEdit ? `<button type="button" class="reading-action ${editing ? "active" : ""}" data-action="inspector-mode" data-mode="${editing ? "read" : "edit"}" aria-pressed="${editing}">${editing ? "Done editing" : "Edit"}</button>` : ""}
+      ${commentType ? `<button type="button" class="reading-action ${state.commentComposerOpen ? "active" : ""}" data-action="inspector-comment" aria-expanded="${state.commentComposerOpen}">Comment${comments ? ` <span class="comment-count">${comments}</span>` : ""}</button>` : ""}
+    </div>
+  </header>`;
+}
+
+function readingSection(title, html, extraClass = "") {
+  return `<section class="reading-section ${extraClass}"><h3>${escapeHtml(title)}</h3>${html}</section>`;
+}
+
+function renderedMath(value) {
+  return `<div class="reading-math math-text">${mathHtml(value ?? "")}</div>`;
+}
+
 function commentBox(type, id, field = "general") {
-  const doc = activeDoc();
-  const comments = doc.comments.filter((item) => item.type === type && item.id === id);
-  return `<section class="comment-block"><h3>Review comments</h3>${comments.map((item) => `<div class="comment-item"><strong>${escapeHtml(item.field)}</strong><p>${escapeHtml(item.text)}</p><button data-remove-comment="${item.key}" aria-label="Remove comment">×</button></div>`).join("")}<label>Field<select data-comment-field>${["general", "claim", "method", "justification", "statement", "pattern", "defect", "required_hypotheses", "obligations"].map((option) => `<option ${option === field ? "selected" : ""}>${option}</option>`).join("")}</select></label><textarea data-comment-text placeholder="What should GPT Work check or change?"></textarea><button class="header-action" data-add-comment="${escapeAttribute(type)}:${escapeAttribute(id)}">Add comment</button></section>`;
+  const comments = activeDoc().comments.filter((item) => item.type === type && item.id === id);
+  if (!comments.length && !state.commentComposerOpen) return "";
+  return `<section class="comment-block" id="inspector-comments"><h3>Review comments ${comments.length ? `<span class="comment-count">${comments.length}</span>` : ""}</h3>
+    ${comments.map((item) => `<div class="comment-item"><strong>${escapeHtml(item.field)}</strong><p>${escapeHtml(item.text)}</p><button data-remove-comment="${escapeAttribute(item.key)}" aria-label="Remove comment">×</button></div>`).join("")}
+    ${state.commentComposerOpen ? `<div class="comment-composer"><label>Comment on<select data-comment-field>${["general", "claim", "method", "justification", "statement", "pattern", "defect", "required_hypotheses", "obligations"].map((option) => `<option ${option === field ? "selected" : ""}>${option}</option>`).join("")}</select></label><textarea data-comment-text placeholder="What should GPT Work check or change?"></textarea><button class="header-action" data-add-comment="${escapeAttribute(type)}:${escapeAttribute(id)}">Add comment</button></div>` : ""}
+  </section>`;
 }
+
+function editHint() {
+  return `<p class="inspector-edit-hint">You are editing this local draft. Each changed field updates the graph; review the differences before exporting.</p>`;
+}
+
 function problemEditor(graph) {
-  return `<div class="inspector-content"><div class="inspector-kicker">Reference · problem</div>${editable("problem", "problem", "title", "Title", graph.problem?.title, false)}${editable("problem", "problem", "statement", "Statement", graph.problem?.statement)}${commentBox("problem", "problem", "statement")}</div>`;
+  const problem = graph.problem ?? {};
+  const body = state.inspectorMode === "edit"
+    ? editHint() + editable("problem", "problem", "title", "Title", problem.title, false)
+      + editable("problem", "problem", "statement", "Problem statement", problem.statement)
+    : readingSection("Problem statement", renderedMath(problem.statement), "reading-hero");
+  const source = problem.source ? readingSection("Source", renderedMath(formatValue(problem.source))) : "";
+  const ambiguities = problem.ambiguities?.length
+    ? readingSection("Open interpretations", `<ul class="reading-bullets">${problem.ambiguities.map((a) => `<li class="math-text">${mathHtml(a)}</li>`).join("")}</ul>`)
+    : "";
+  return `<div class="inspector-content reading-inspector">
+    ${inspectorHeader("Problem", problem.title || "Problem statement", "problem", { commentType: "problem" })}
+    <div class="reading-body">${body}${ambiguities}${source}${commentBox("problem", "problem", "statement")}</div>
+  </div>`;
 }
+
 function theoremEditor(graph, id) {
-  const item = graph.theorems.find((entry) => entry.id === id);
+  const item = graph.theorems?.find((entry) => entry.id === id);
   if (!item) return `<div class="inspector-empty">Theorem unavailable.</div>`;
-  return `<div class="inspector-content"><div class="inspector-kicker">Theorem</div>${copyId(id)}${editable("theorems", id, "statement", "Statement", item.statement)}${editable("theorems", id, "required_hypotheses", "Required hypotheses · one per line", item.required_hypotheses ?? [])}${editable("theorems", id, "source", "Source", item.source)}${commentBox("theorem", id, "statement")}</div>`;
+  const usedBy = graph.edges.filter((edge) => (edge.uses ?? []).includes(id));
+  const body = state.inspectorMode === "edit"
+    ? editHint() + editable("theorems", id, "statement", "Theorem statement", item.statement)
+      + editable("theorems", id, "required_hypotheses", "Required hypotheses · one per line", item.required_hypotheses ?? [])
+      + editable("theorems", id, "source", "Source", item.source)
+    : readingSection("Theorem statement", renderedMath(item.statement), "reading-hero")
+      + readingSection("Required hypotheses", item.required_hypotheses?.length
+        ? `<ol class="reading-bullets">${item.required_hypotheses.map((h) => `<li class="math-text">${mathHtml(h)}</li>`).join("")}</ol>`
+        : `<p class="reading-hint">No hypotheses specified in this graph.</p>`)
+      + (item.source ? readingSection("Reference", `<p class="reading-prose">${escapeHtml(formatValue(item.source))}</p>`) : "");
+  return `<div class="inspector-content reading-inspector">
+    ${inspectorHeader("Theorem", "Theorem reference", id, { commentType: "theorem" })}
+    <div class="reading-body">${body}
+      ${usedBy.length ? `<details class="reading-disclosure"><summary>Used by inferences <span>${usedBy.length}</span></summary>${linkList("", usedBy, "edge")}</details>` : ""}
+      ${commentBox("theorem", id, "statement")}
+    </div>
+  </div>`;
 }
+
 function differenceInspector(key) {
   const before = state.documents.find((doc) => doc.key === state.compare.before)?.report.graph;
   const after = state.documents.find((doc) => doc.key === state.compare.after)?.report.graph;
