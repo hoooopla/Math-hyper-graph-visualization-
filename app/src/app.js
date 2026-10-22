@@ -492,26 +492,27 @@ function mistakeCards(mistakes, allowNavigation = true) {
     <header class="reading-mistake-top">
       <span class="reading-mistake-number">${String(index + 1).padStart(2, "0")}</span>
       <span class="reading-mistake-category">${escapeHtml((mistake.category ?? "common mistake").replaceAll("_", " "))}</span>
-      ${allowNavigation ? `<button type="button" class="reading-reference-link" data-select-type="mistake" data-select-id="${escapeAttribute(mistake.id)}">Inspect ↗</button>` : ""}
+      ${allowNavigation ? `<button type="button" class="reading-reference-link" data-select-type="mistake" data-select-id="${escapeAttribute(mistake.id)}">Open ↗</button>` : ""}
     </header>
     <div class="reading-false-move">
-      <span class="reading-mini-label">Incorrect move</span>
-      ${renderedMath(mistake.pattern)}
+      <span class="reading-mini-label">Incorrect argument</span>
+      ${editableMath("mistakes", mistake.id, "pattern", "Incorrect argument", mistake.pattern)}
     </div>
     <div class="reading-diagnosis">
       <span class="reading-mini-label">Why it fails</span>
-      <div class="reading-prose math-text">${mathHtml(mistake.defect)}</div>
+      ${editableMath("mistakes", mistake.id, "defect", "Why it fails", mistake.defect)}
     </div>
   </article>`).join("");
 }
 
-function mistakesSection(mistakes) {
+function mistakesSection(mistakes, label = "Common mistakes") {
+  if (!mistakes.length) return `<div class="reading-no-mistakes">No common mistakes are documented for this selection.</div>`;
   return `<section class="reading-section reading-pitfalls" aria-label="Common mistakes">
     <div class="reading-section-heading">
-      <h3>Common mistakes</h3>
-      <span class="reading-count ${mistakes.length ? "has-mistakes" : ""}">${mistakes.length} ${mistakes.length === 1 ? "pitfall" : "pitfalls"}</span>
+      <h3>${escapeHtml(label)}</h3>
+      <span class="reading-count has-mistakes">${mistakes.length} ${mistakes.length === 1 ? "case" : "cases"}</span>
     </div>
-    ${mistakes.length ? mistakeCards(mistakes) : `<p class="reading-hint">No common mistakes have been recorded for this step.</p>`}
+    ${mistakeCards(mistakes)}
   </section>`;
 }
 
@@ -527,16 +528,12 @@ function mistakeInspector(graph, id) {
   if (!mistake) return `<div class="inspector-empty"><p>Mistake reference not found.</p></div>`;
   const related = (mistake.related_edges ?? [])
     .map((edgeId) => graph.edges.find((edge) => edge.id === edgeId)).filter(Boolean);
-  const body = state.inspectorMode === "edit"
-    ? editHint() + editable("mistakes", id, "category", "Category", mistake.category, false)
-      + editable("mistakes", id, "pattern", "Incorrect argument or pattern", mistake.pattern)
-      + editable("mistakes", id, "defect", "Mathematical defect", mistake.defect)
-    : mistakeCards([mistake], false);
   return `<div class="inspector-content reading-inspector">
-    ${inspectorHeader("Common mistake", "Why this argument fails", id, { commentType: "mistake" })}
+    ${inspectorHeader("Common mistake", "Mathematical defect", id, { commentType: "mistake" })}
     <div class="reading-body">
-      ${body}
-      ${related.length ? `<details class="reading-disclosure"><summary>Related valid inferences <span>${related.length}</span></summary>${linkList("", related, "edge")}</details>` : ""}
+      ${mistakeCards([mistake], false)}
+      ${related.length ? `<details class="reading-disclosure"><summary>Related inferences <span>${related.length}</span></summary>${linkList("", related, "edge")}</details>` : ""}
+      ${advancedFields(editable("mistakes", id, "category", "Mistake category", mistake.category, false))}
       ${commentBox("mistake", id, "pattern")}
     </div>
   </div>`;
@@ -545,20 +542,17 @@ function mistakeInspector(graph, id) {
 function nodeInspector(graph, node) {
   const incoming = graph.edges.filter((edge) => edge.to === node.id);
   const outgoing = graph.edges.filter((edge) => edge.from.includes(node.id));
-  const affected = [...new Map([...incoming, ...outgoing].flatMap((edge) =>
+  const adjacentMistakes = [...new Map([...incoming, ...outgoing].flatMap((edge) =>
     getRelatedMistakes(graph, edge.id)).map((mistake) => [mistake.id, mistake])).values()];
   const verified = activeDoc().verification.nodes.get(node.id) === nodeFingerprint(graph, node.id);
-  const body = state.inspectorMode === "edit"
-    ? editHint() + editable("nodes", node.id, "assertion", "Mathematical assertion", node.assertion ?? node.claim)
-    : readingSection("Mathematical assertion", renderedMath(node.assertion ?? node.claim), "reading-hero");
   return `<div class="inspector-content reading-inspector">
-    ${inspectorHeader(node.type, "Assertion", node.id, { verification: "node", verified, commentType: "node" })}
+    ${inspectorHeader(node.type, "Assertion", node.id, { verification: "node", verified, commentType: "node", canEdit: false })}
     <div class="reading-body">
-      ${body}
-      ${node.scope ? readingSection("Scope / local assumptions", renderedMath(formatValue(node.scope)), "reading-scope") : ""}
-      ${mistakesSection(affected)}
+      ${mathFieldSection("nodes", node.id, "assertion", "Mathematical assertion to verify", node.assertion ?? node.claim, "reading-hero")}
+      ${node.scope ? readingSection("Local assumptions / scope to check", renderedMath(formatValue(node.scope)), "reading-proof-checks") : ""}
+      ${mistakesSection(adjacentMistakes, "Mistakes in connected inferences")}
       <details class="reading-disclosure">
-        <summary>Connected inferences <span>${incoming.length} incoming · ${outgoing.length} outgoing</span></summary>
+        <summary>Proof dependencies <span>${incoming.length} incoming · ${outgoing.length} outgoing</span></summary>
         ${linkList("Leading to this assertion", incoming, "edge")}
         ${linkList("Using this assertion", outgoing, "edge")}
       </details>
@@ -569,26 +563,36 @@ function nodeInspector(graph, node) {
 
 function auditChecklist(scope = "inference") {
   const checks = scope === "path"
-    ? ["Do all premises and intermediate inferences jointly reach the goal?",
-       "Does every theorem apply where it is used?",
-       "Are quantifiers, exceptional cases, and local assumptions consistent?",
-       "Have the documented pitfalls been considered?"]
-    : ["Are every required source assertion and its local assumptions available?",
-       "Does the stated method actually establish the conclusion?",
-       "Are all required hypotheses of each cited theorem satisfied?",
-       "Are quantifiers, exceptional cases, and proof obligations addressed?",
-       "Could any documented common mistake invalidate this step?"];
+    ? ["Do the premises and inference steps jointly establish the target?",
+       "Have theorem conditions, exceptional cases and scopes been justified?"]
+    : ["Does the stated method prove exactly this conclusion from all sources?",
+       "Are the theorem conditions, scope and edge-specific obligations addressed?"];
   return `<details class="reading-disclosure reading-audit-guide">
-    <summary>Verification questions <span>${checks.length} checks</span></summary>
+    <summary>Optional review guide <span>${checks.length} prompts</span></summary>
     <ol class="reading-checklist">${checks.map((entry) => `<li>${escapeHtml(entry)}</li>`).join("")}</ol>
-    <p class="reading-hint">These prompts assist a mathematical review; checking a box marks your own review, not an automatic correctness judgment or student grade.</p>
+    <p class="reading-hint">Generic prompts only. The actual mathematical obligations and theorem hypotheses above are authoritative for this graph. The Verify control is a manual review mark, not an automatic proof or grade.</p>
   </details>`;
+}
+
+function theoremRequirements(theorems) {
+  if (!theorems.length) return "";
+  return readingSection("Theorem applicability — verify each hypothesis",
+    theorems.map((theorem) => `<div class="reading-theorem-reference">
+      <button type="button" class="reading-theorem-link" data-select-type="theorem" data-select-id="${escapeAttribute(theorem.id)}">
+        <span>${escapeHtml(theorem.id)} ↗</span>
+        <div class="math-text">${mathHtml(theorem.statement)}</div>
+      </button>
+      <div class="reading-hypotheses">
+        ${theorem.required_hypotheses?.length
+          ? `<ol class="reading-bullets">${theorem.required_hypotheses.map((h) => `<li class="math-text">${mathHtml(h)}</li>`).join("")}</ol>`
+          : `<p class="reading-hint">No hypotheses recorded here. Consult the theorem before marking this inference verified.</p>`}
+      </div>
+    </div>`).join(""), "reading-proof-checks");
 }
 
 function edgeInspector(graph, edge) {
   const audit = inferenceAuditModel(graph, edge);
   const verified = activeDoc().verification.edges.get(edge.id) === edgeFingerprint(graph, edge.id);
-  const editing = state.inspectorMode === "edit";
 
   const flow = `<section class="reading-section reading-inference-flow" aria-label="Mathematical inference">
     <h3>Required assumptions</h3>
@@ -600,52 +604,38 @@ function edgeInspector(graph, edge) {
       <span class="reading-flow-arrow" aria-hidden="true">↓</span>
       <div class="reading-method-card">
         <span class="reading-mini-label">Inference method</span>
-        <div class="reading-method-name math-text">${mathHtml(audit.method)}</div>
+        ${editableMath("edges", edge.id, "method", "Inference method", audit.method, renderedMath(audit.method), false)}
       </div>
       <span class="reading-flow-arrow" aria-hidden="true">↓</span>
     </div>
-    <h3>Conclusion</h3>
+    <h3>Conclusion to establish</h3>
     ${audit.target ? statementLink(audit.target, "Target assertion") : `<span class="reading-hint">Conclusion unavailable.</span>`}
   </section>`;
 
-  const reasoning = readingSection("Detailed justification",
-    renderedMath(audit.justification) +
-    (audit.obligations?.length ? `<div class="reading-obligations"><span class="reading-mini-label">Proof obligations</span>
-      <ul class="reading-bullets">${audit.obligations.map((requirement) => `<li class="math-text">${mathHtml(requirement)}</li>`).join("")}</ul></div>` : ""),
-    "reading-reasoning");
-
-  const edits = editHint()
-    + editable("edges", edge.id, "method", "Inference method", edge.method, false)
-    + editable("edges", edge.id, "from", "Sources · one node ID per line", edge.from)
-    + editable("edges", edge.id, "to", "Conclusion · node ID", edge.to, false)
-    + editable("edges", edge.id, "justification", "Mathematical justification", edge.justification)
-    + editable("edges", edge.id, "uses", "Theorems · one ID per line", edge.uses ?? [])
-    + (edge.obligations ? editable("edges", edge.id, "obligations", "Obligations · one per line", edge.obligations) : "");
-
-  const theoremRefs = audit.theorems.length ? readingSection("Theorem dependencies",
-    `<p class="reading-hint">Verify that each listed hypothesis holds in this inference.</p>` +
-    audit.theorems.map((theorem) => `<article class="reading-theorem-reference">
-      <button type="button" class="reading-theorem-link" data-select-type="theorem" data-select-id="${escapeAttribute(theorem.id)}">
-        <span>${escapeHtml(theorem.id)} ↗</span>
-        <div class="math-text">${mathHtml(theorem.statement)}</div>
-      </button>
-      <div class="reading-hypotheses">
-        <strong>Required hypotheses</strong>
-        ${theorem.required_hypotheses?.length
-          ? `<ol class="reading-bullets">${theorem.required_hypotheses.map((h) => `<li class="math-text">${mathHtml(h)}</li>`).join("")}</ol>`
-          : `<p class="reading-hint">Not specified; review theorem assumptions before verifying.</p>`}
-      </div>
-    </article>`).join(""), "reading-references") : "";
+  const reasoning = mathFieldSection("edges", edge.id, "justification", "Detailed justification to verify",
+    audit.justification, "reading-reasoning");
+  const obligations = audit.obligations?.length
+    ? mathFieldSection("edges", edge.id, "obligations", "Specific proof obligations",
+      audit.obligations, "reading-proof-checks",
+      `<ol class="reading-bullets">${audit.obligations.map((requirement) => `<li class="math-text">${mathHtml(requirement)}</li>`).join("")}</ol>`)
+    : "";
+  const advanced = advancedFields(
+    editable("edges", edge.id, "from", "Source node IDs · one per line", edge.from)
+    + editable("edges", edge.id, "to", "Conclusion node ID", edge.to, false)
+    + editable("edges", edge.id, "uses", "Theorem IDs · one per line", edge.uses ?? [])
+  );
 
   return `<div class="inspector-content reading-inspector reading-edge-inspector">
     ${inspectorHeader("Inference", "Review inference", edge.id, { verification: "edge", verified, commentType: "edge" })}
     <div class="reading-body">
-      ${editing ? edits : flow + reasoning}
+      ${flow}
+      ${reasoning}
+      ${obligations}
+      ${audit.scope ? readingSection("Local assumptions and scope", renderedMath(formatValue(audit.scope)), "reading-proof-checks") : ""}
       ${mistakesSection(audit.mistakes)}
-      ${audit.scope ? readingSection("Scope / local assumptions", renderedMath(formatValue(audit.scope)), "reading-scope") : ""}
-      ${theoremRefs}
-      ${editing ? `<details class="reading-disclosure"><summary>Preview mathematical inference</summary>${flow}${reasoning}</details>` : ""}
+      ${theoremRequirements(audit.theorems)}
       ${auditChecklist()}
+      ${advanced}
       ${commentBox("edge", edge.id, "justification")}
     </div>
   </div>`;
@@ -664,25 +654,36 @@ function pathInspector(graph, index) {
       <div class="reading-header-label">Complete solution path <span class="reading-header-id">#${index + 1}</span></div>
       <h2>Proof path ${index + 1}</h2>
       <div class="reading-actions">
-        <label class="reading-verify"><input type="checkbox" data-verify-path="${index}" ${verified ? "checked" : ""}>
-          <span>${verified ? "Verified path" : "Verify path"}</span></label>
+        <label class="reading-verify" title="Manual path verification, not an automated mathematical proof">
+          <input type="checkbox" data-verify-path="${index}" ${verified ? "checked" : ""}>
+          <span>${verified ? "Verified path" : "Mark path verified"}</span>
+        </label>
         <span class="reading-path-progress">${status}/${audit.orderedEdges.length} inferences marked verified</span>
       </div>
     </header>
     <div class="reading-body">
-      ${readingSection("Goal", audit.goal ? renderedMath(audit.goal.assertion ?? audit.goal.claim) : "", "reading-hero")}
+      ${readingSection("Goal to establish", audit.goal ? renderedMath(audit.goal.assertion ?? audit.goal.claim) : "", "reading-hero")}
       ${readingSection("Premises", audit.premises.length
         ? audit.premises.map((node, i) => statementLink(node, `Premise ${i + 1}`)).join("")
         : `<p class="reading-hint">No premise assertions recorded for this path.</p>`)}
-      ${readingSection("Inferences · premise to goal", audit.orderedEdges.map((edge, i) => {
-        const mark = activeDoc().verification.edges.get(edge.id) === edgeFingerprint(graph, edge.id);
-        return `<button type="button" class="reading-path-step" data-select-type="edge" data-select-id="${escapeAttribute(edge.id)}">
-          <span class="reading-path-step-index">${String(i + 1).padStart(2, "0")}</span>
-          <span><strong class="math-text">${mathHtml(edge.method)}</strong><small>${escapeHtml(edge.id)} · ${mark ? "Marked verified" : "Not yet verified"}</small></span>
-          <span aria-hidden="true">↗</span>
-        </button>`;
-      }).join(""))}
-      ${mistakesSection(audit.mistakes)}
+      <section class="reading-section reading-path-proof">
+        <h3>Mathematical argument · premise to goal</h3>
+        ${audit.orderedEdges.map((edge, i) => {
+          const review = inferenceAuditModel(graph, edge);
+          const mark = activeDoc().verification.edges.get(edge.id) === edgeFingerprint(graph, edge.id);
+          return `<article class="reading-path-step">
+            <div class="path-step-heading">
+              <span class="reading-path-step-index">Step ${i + 1}</span>
+              <button type="button" class="reading-reference-link" data-select-type="edge" data-select-id="${escapeAttribute(edge.id)}">Review inference ↗</button>
+              <span class="path-step-status">${mark ? "Verified" : "Not reviewed"}</span>
+            </div>
+            <div class="path-step-method math-text">${mathHtml(edge.method)}</div>
+            <div class="path-step-claim math-text">${mathHtml(review.target?.assertion ?? review.target?.claim ?? "")}</div>
+            <div class="path-step-reason math-text">${mathHtml(edge.justification)}</div>
+          </article>`;
+        }).join("")}
+      </section>
+      ${mistakesSection(audit.mistakes, "Pitfalls affecting this proof path")}
       ${auditChecklist("path")}
     </div>
   </div>`;
