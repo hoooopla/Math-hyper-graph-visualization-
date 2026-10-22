@@ -7,6 +7,6 @@
     "dev": "npm run build && node scripts/server.mjs",
     "build": "node scripts/build.mjs",
     "test": "node --test app/tests/*.test.js tests/*.test.js",
-    "check": "npm test && npm run build"
+    "check": "npm test && node --check app/src/app.js && npm run build"
   }
 }
