@@ -570,7 +570,7 @@ button { color: inherit; }
   border: 1px solid #3c4655; border-left: 3px solid #7e9db1;
   border-radius: 6px; background: #151c26; color: #edf1f7; cursor: pointer;
 }
-.reading-statement-link:last-child { border-left-color: var(--accent-dim); }
+.reading-source-stack .reading-statement-link { border-left-color: #7e9db1; }
 .reading-statement-link:hover, .reading-statement-link:focus-visible {
   border-color: var(--accent); box-shadow: 0 0 0 2px #c9ff6420; outline: none;
 }
@@ -662,4 +662,44 @@ button { color: inherit; }
   .reading-header { padding-left: 14px; padding-right: 50px; }
   .reading-action, .reading-verify { font-size: 10px; padding: 6px 9px; }
   .reading-statement-link { padding: 12px; }
+}
+
+
+/* Reference panels share the document rhythm without becoming edit forms. */
+.context-inspector .reading-body > .detail-block {
+  margin: 0; padding: 22px 0; border: 0; border-bottom: 1px solid #29313e;
+  background: transparent; color: #dbe2eb;
+}
+.context-inspector .reading-body > .detail-block.important { margin: 0; border-radius: 0; }
+.context-inspector .reading-body > .detail-block > h3 {
+  margin: 0 0 13px; font: 700 12px/1.3 ui-sans-serif, system-ui, sans-serif;
+  text-transform: none; letter-spacing: .015em; color: #c9d5e1;
+}
+.context-inspector .reading-body > .detail-block.important > h3 { color: #d7e8c4; }
+.context-inspector .reading-body > .detail-block.important > .math-text,
+.context-inspector .reference-rows dd,
+.context-inspector .reference-list { color: #ecf0f5; font: 15px/1.75 Georgia, serif; }
+.context-inspector .reading-body > .detail-block.important > .math-text { font-size: 17px; }
+.context-inspector .reference-id { color: #8996a8; padding-top: 14px; font: 10px/1.5 ui-monospace, monospace; }
+.context-inspector .reference-rows > div { border-bottom: 1px solid #25303d; padding: 9px 0 12px; }
+.context-inspector .reference-rows dt { color: #b1bfd3; font: 650 11px/1.45 ui-sans-serif, system-ui, sans-serif; }
+.context-inspector .theorem-card.reference-theorem {
+  display: grid; gap: 11px; margin: 0; padding: 17px 0;
+  border: 0; border-bottom: 1px solid #303b4b;
+  border-radius: 0; background: transparent;
+}
+.context-inspector .reference-theorem .reference-link {
+  font: 700 11px/1.5 ui-monospace, monospace; color: #c4b2fb;
+}
+.context-inspector .reference-theorem > .math-text { color: #ecf0f6; font: 15px/1.75 Georgia, serif; }
+.context-inspector .reference-theorem .hypotheses-list { padding: 10px 0; gap: 8px; font-size: 13px; }
+.context-inspector .reference-theorem .hypotheses-list strong {
+  color: #a9bacb; font: 700 11px/1.35 ui-sans-serif, system-ui, sans-serif;
+  text-transform: none; letter-spacing: normal;
+}
+.context-inspector .reference-theorem .reference-source,
+.context-inspector .reference-theorem .reference-related { padding-top: 11px; }
+.context-inspector .reference-theorem .reference-related strong,
+.context-inspector .reference-theorem .reference-source strong {
+  color: #a9b6c8; font-size: 10px;
 }
