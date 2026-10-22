@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "description": "Copy canonical public Proof Atlas workflow into an instructor-owned repository, without website sources.",
   "files": [
     {
@@ -27,8 +27,16 @@
       "destination": "schema/solution-graph.schema.json"
     },
     {
+      "source": "core/schema/assignment-policy.schema.json",
+      "destination": "schema/assignment-policy.schema.json"
+    },
+    {
       "source": "core/validation/validate_graphs.py",
       "destination": "scripts/validate_graphs.py"
+    },
+    {
+      "source": "core/validation/validate_policies.py",
+      "destination": "scripts/validate_policies.py"
     },
     {
       "source": "workflow/assignment-policy.md",

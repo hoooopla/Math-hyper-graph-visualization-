@@ -26,9 +26,12 @@ compare revisions, and prepare review comments.
    decision table **before constructing full solution graphs**. Earlier assignments
    are useful context, not permission.
 3. After you answer, Work records the approved choices in
-   `assignments/<assignment-id>/policy.yaml`, develops and checks the
-   complete graphs, and asks only about *new* dependencies discovered
-   during proof construction.
+   `assignments/<assignment-id>/policy.yaml`, **in the same assignment
+   folder as its problem subfolders** (no separate policy directory).
+   It develops and independently checks complete graphs, asking only
+   about *new* dependencies discovered during proof construction.
+   A policy-compliance validator rejects theorem declarations or direct
+   citations without an applicable instructor decision.
 4. Review the proposed policy, `graph.yaml` and `verification.md`
    files in a pull request. Inspect the graphs in the website and
    approve the mathematics yourself.
@@ -90,6 +93,8 @@ npm run dev                        # Builds and serves localhost:4173
 npm run check                      # Node tests and website build
 python -m pip install -r requirements.txt
 python core/validation/validate_graphs.py
+python core/validation/validate_policies.py
+python -m unittest discover -s tests -p 'test_validate_policies.py'
 ```
 
 To create a standalone instructor workspace:
@@ -109,7 +114,7 @@ mathematical correctness.
 [Contributing](docs/contributing.md) ·
 [Generation workflow](workflow/generate-solution-graph.md) ·
 [Verification workflow](workflow/verify-solution-graph.md) ·
-[Assignment theorem policy](workflow/assignment-policy.md) ·
+[Assignment theorem policy and compliance validation](workflow/assignment-policy.md) ·
 [Optional pre-audit discovery](workflow/preaudit-discovery.md)
 
 Do not publish identifiable student submissions, grades or confidential

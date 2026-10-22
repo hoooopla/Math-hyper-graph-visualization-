@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "assignment-policy.schema.json",
+  "title": "Assignment-local instructor theorem-use policy",
+  "type": "object",
+  "required": [
+    "assignment_id",
+    "decisions",
+    "problem_overrides"
+  ],
+  "properties": {
+    "assignment_id": {
+      "$ref": "#/$defs/id"
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "statement",
+          "treatment",
+          "problems",
+          "approval_evidence"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "kind": {
+            "enum": [
+              "theorem",
+              "step"
+            ]
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "treatment": {
+            "$ref": "#/$defs/treatment"
+          },
+          "problems": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/id"
+                },
+                {
+                  "const": "*"
+                }
+              ]
+            }
+          },
+          "approval_evidence": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "problem_overrides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "problem_id",
+          "item_id",
+          "treatment",
+          "approval_evidence"
+        ],
+        "properties": {
+          "problem_id": {
+            "$ref": "#/$defs/id"
+          },
+          "item_id": {
+            "$ref": "#/$defs/id"
+          },
+          "treatment": {
+            "$ref": "#/$defs/treatment"
+          },
+          "approval_evidence": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+      "minLength": 1
+    },
+    "treatment": {
+      "enum": [
+        "cite",
+        "derive",
+        "exclude"
+      ]
+    }
+  }
+}

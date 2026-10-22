@@ -2,7 +2,9 @@ Set up my own Math Homework Audit workspace from the PUBLIC repository:
 https://github.com/hoooopla/proof-atlas (main).
 
 Read its current AGENTS.md, core/SCHEMA.md,
-core/schema/solution-graph.schema.json, workflow/generate-solution-graph.md,
+core/schema/solution-graph.schema.json,
+core/schema/assignment-policy.schema.json,
+core/validation/validate_policies.py, workflow/generate-solution-graph.md,
 workflow/verify-solution-graph.md, workflow/assignment-policy.md,
 workflow/preaudit-discovery.md,
 templates/instructor-workspace/manifest.json and docs/getting-started.md.
@@ -45,13 +47,24 @@ authorize student submissions for this purpose:**
   graph.yaml or assume agreement from silence.
 
 After my response, create
-assignments/<assignment-id>/policy.yaml from the inert template, recording
+assignments/<assignment-id>/policy.yaml **directly inside the assignment
+directory alongside P01/, P02/, etc.** (never in a separate
+`policies/` directory), from the inert template, recording
 only my actual approved choices and their exact scope/evidence. Construct
 and independently verify solution hypergraphs under this policy. If new
 theorem or justification dependencies arise, ask only about the NEW ones
 before adding the affected routes.
 
-Run the structural validator and create a reviewable PR in MY repository
+Before committing, ensure every graph theorem has an applicable
+assignment-policy decision with an exactly matching theorem statement,
+and every direct `edges[].uses` citation has effective treatment
+`cite` (respect problem-specific overrides). A `derive` or
+`exclude` decision never permits a bare theorem citation.
+Run both `python scripts/validate_graphs.py` and
+`python scripts/validate_policies.py`; resolve ALL failures.
+These checks do not prove theorem hypotheses or mathematical correctness.
+
+Create a reviewable PR in MY repository
 with policy.yaml, each graph.yaml and verification.md. Do not merge
 mathematical changes without my approval. Do not create visualization.md
 or conduct individual student auditing/grading unless separately requested.

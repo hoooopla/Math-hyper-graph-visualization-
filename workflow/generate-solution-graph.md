@@ -9,7 +9,8 @@ never in the public Proof Atlas software repository.
 
 Read these files from the **current instructor repository**, not memory:
 `AGENTS.md`, `SCHEMA.md`, `schema/solution-graph.schema.json`,
-`scripts/validate_graphs.py`, `prompts/verify-solution-graph.md`,
+`schema/assignment-policy.schema.json`, `scripts/validate_graphs.py`,
+`scripts/validate_policies.py`, `prompts/verify-solution-graph.md`,
 `prompts/assignment-policy.md`, `prompts/preaudit-discovery.md`,
 `templates/discovery-report.template.md`, and
 `templates/assignment-policy.template.yaml`.
@@ -83,7 +84,9 @@ cover candidate uses and request decisions only for uncovered uses.
 ## Phase B — construct and rigorously verify after the checkpoint
 
 6. Record **only explicit approvals** and their actual evidence and scope in
-   `assignments/<assignment-id>/policy.yaml`, following
+   **the same assignment folder as the problem subfolders**:
+   `assignments/<assignment-id>/policy.yaml` (never a separate policy
+   directory). Follow
    `prompts/assignment-policy.md` and the template. Use one policy per
    assignment, with a precise statement and affected problem IDs for every
    item; record explicitly approved problem overrides where necessary.
@@ -101,10 +104,17 @@ cover candidate uses and request decisions only for uncovered uses.
    - Each edge has `id`, a **nonempty** `from` list (jointly required
      AND), `to`, `method`, and `justification`. Alternative incoming
      edges give OR. No hidden assumptions or empty-source edges.
-   - Theorem applications belong in `edges[].uses`, mathematical
-     hypotheses in `theorems[].required_hypotheses`, local conditions in
-     `scope`/`obligations`. Mathematical theorem dependencies are
-     **separate from course permission** in `policy.yaml`.
+   - **List only inventoried, policy-covered theorems** in
+     `theorems[]`. Every graph theorem must match the approved theorem
+     statement for that problem scope.
+   - Put an external theorem invocation in `edges[].uses` **only when
+     the effective assignment policy treatment is `cite`**, including
+     problem-specific overrides. A `derive` decision requires proof
+     steps/nodes in the graph, never a direct `uses` citation; an
+     `exclude` decision forbids direct invocation. Mathematical
+     hypotheses remain in `theorems[].required_hypotheses`, local
+     conditions in `scope`/`obligations`. Course permission and
+     mathematical theorem applicability are independent.
    - Record precise theorem statements with trustworthy references and
      common mistakes (`id`, `related_edges`, `pattern`, `defect`,
      `category`). Mistakes are not valid proof edges. No grading points.
@@ -149,9 +159,14 @@ problem scope, or adds a conflicting local requirement:
     applicable policy entries, records unresolved issues and independently
     verified versus unchecked claims, and reports structural validation
     accurately. Do not create `visualization.md` or a separate graph.
-12. Run `python scripts/validate_graphs.py`; fix errors and rerun. If
-    execution is unavailable, **say so**; do not claim it passed. Check
-    viewer import when feasible. Never confuse structural validity,
+12. Run **both** `python scripts/validate_graphs.py` and
+    `python scripts/validate_policies.py` **before committing**, fix all
+    errors and rerun. The latter fails on unapproved listed theorems,
+    out-of-scope or mismatched statements, any `derive`/`exclude`
+    direct citation, invalid overrides, or a missing/misplaced
+    assignment-local `policy.yaml`. If execution is unavailable,
+    **say so**; do not claim it passed. Check viewer import when feasible.
+    Never confuse policy-record validation or structural validity,
     AI mathematical verification, theorem policy approval or final
     instructor graph approval.
 13. **Only after the instructor explicitly resolves the necessary policy

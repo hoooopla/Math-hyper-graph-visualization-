@@ -1,5 +1,7 @@
 # TEMPLATE ONLY — do not treat this file as an instructor approval.
-# Copy to assignments/<assignment-id>/policy.yaml AFTER explicit instructor
+# Copy to assignments/<assignment-id>/policy.yaml in the SAME ASSIGNMENT
+# DIRECTORY as P01/ and P02/ (no separate policies/ folder),
+# AFTER explicit instructor
 # Cite / Derive / Exclude decisions for that assignment. Preserve actual
 # evidence and scope in every confirmed entry; leave unknown decisions OUT.
 # See prompts/assignment-policy.md for rules and an annotated example.
