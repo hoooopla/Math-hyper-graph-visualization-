@@ -12,15 +12,24 @@ test("workspace generator creates only intended private-repository files", async
     await createWorkspace(target);
     assert.deepEqual((await readdir(target)).sort(), [
       ".github", ".gitignore", "AGENTS.md", "README.md", "SCHEMA.md",
-      "examples", "prompts", "requirements.txt", "schema", "scripts"
+      "examples", "prompts", "requirements.txt", "schema", "scripts", "templates"
     ].sort());
 
     const agent = await readFile(join(target, "AGENTS.md"), "utf8");
     const generator = await readFile(join(target, "prompts/generate-solution-graph.md"), "utf8");
     const verifier = await readFile(join(target, "prompts/verify-solution-graph.md"), "utf8");
-    assert.match(agent, /Pre-commit instructor gate/);
+    assert.match(agent, /Early, assignment-scoped instructor gate/);
+    assert.match(agent, /same assignment/);
     assert.match(generator, /Pause for an explicit response/);
     assert.match(verifier, /Cite \/ Derive \/ Exclude/);
+    assert.match(verifier, /early assignment-wide/);
+    const assignmentPolicy = await readFile(join(target, "prompts/assignment-policy.md"), "utf8");
+    assert.match(assignmentPolicy, /Previous/);
+    assert.match(assignmentPolicy, /problem_overrides/);
+    const template = await readFile(join(target, "templates/assignment-policy.template.yaml"), "utf8");
+    assert.match(template, /TEMPLATE ONLY/);
+    assert.match(template, /decisions: \[\]/);
+    assert.match(template, /problem_overrides: \[\]/);
     const publicSchema = await readFile(new URL("../core/schema/solution-graph.schema.json", import.meta.url));
     const privateSchema = await readFile(join(target, "schema/solution-graph.schema.json"));
     assert.deepEqual(publicSchema, privateSchema, "private schema must exactly match public authority");
@@ -37,12 +46,14 @@ test("workspace generator creates only intended private-repository files", async
 
 test("workspace manifest has explicit unique paths and never copies frontend", async () => {
   const data = JSON.parse(await readFile(new URL("../templates/instructor-workspace/manifest.json", import.meta.url), "utf8"));
-  assert.equal(data.version, 2);
+  assert.equal(data.version, 3);
   assert.ok(data.files.length > 0);
   const outputs = data.files.map((entry) => entry.destination);
   assert.equal(new Set(outputs).size, outputs.length);
   assert.ok(data.files.some((entry) => entry.source === "core/schema/solution-graph.schema.json" && entry.destination === "schema/solution-graph.schema.json"));
   assert.ok(data.files.some((entry) => entry.source === "templates/instructor-workspace/AGENTS.md" && entry.destination === "AGENTS.md"));
+  assert.ok(data.files.some((entry) => entry.source === "workflow/assignment-policy.md" && entry.destination === "prompts/assignment-policy.md"));
+  assert.ok(data.files.some((entry) => entry.source === "templates/instructor-workspace/assignment-policy.template.yaml" && entry.destination === "templates/assignment-policy.template.yaml"));
   assert.equal(data.files.some((entry) => entry.source.startsWith("app/")), false);
 });
 
