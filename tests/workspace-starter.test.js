@@ -47,9 +47,9 @@ test("public documentation and onboarding always use the renamed Proof Atlas URL
     readFile(new URL(path, import.meta.url), "utf8")
   ));
   for (const [index, content] of contents.entries()) {
-    assert.doesNotMatch(content, /hoooopla\\/(?:Math-hyper-graph-visualization-)/,
+    assert.equal(content.includes("hoooopla/Math-hyper-graph-visualization-"), false,
       `Outdated GitHub repository link in ${paths[index]}`);
-    assert.doesNotMatch(content, /hoooopla\\.github\\.io\\/Math-hyper-graph-visualization-/,
+    assert.equal(content.includes("hoooopla.github.io/Math-hyper-graph-visualization-"), false,
       `Outdated website link in ${paths[index]}`);
   }
   const [readme, gettingStarted, schema, prompt, workspace, app] = contents;
