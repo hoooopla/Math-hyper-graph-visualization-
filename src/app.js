@@ -56,8 +56,8 @@ root.innerHTML = `
         <p class="workflow-message" role="status" aria-live="polite"></p>
         <div class="workflow-actions">
           <button class="upload-button" data-action="copy-workflow" disabled>Copy prompt</button>
-          <a class="header-action" href="https://github.com/hoooopla/Math-hyper-graph-visualization-/blob/main/docs/GETTING_STARTED.md" target="_blank" rel="noopener noreferrer">Setup guide ↗</a>
-          <a class="header-action" href="https://github.com/hoooopla/Math-hyper-graph-visualization-" target="_blank" rel="noopener noreferrer">Source ↗</a>
+          <a class="header-action" href="https://github.com/hoooopla/proof-atlas/blob/main/docs/GETTING_STARTED.md" target="_blank" rel="noopener noreferrer">Setup guide ↗</a>
+          <a class="header-action" href="https://github.com/hoooopla/proof-atlas" target="_blank" rel="noopener noreferrer">Source ↗</a>
         </div>
       </section>
     </div>

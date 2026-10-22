@@ -2,7 +2,7 @@
 
 This is your independent repository for assignments. The shared workflow,
 viewer, schema and documentation come from
-https://github.com/hoooopla/Math-hyper-graph-visualization- .
+https://github.com/hoooopla/proof-atlas .
 
 In GPT Work, attach your problem PDF and tell the agent to follow
 `AGENTS.md`, `SCHEMA.md`, `prompts/generate-solution-graph.md`,

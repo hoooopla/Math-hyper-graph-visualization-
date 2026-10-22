@@ -33,3 +33,31 @@ test("workflow on main has independent theorem gate and no hardcoded private rep
   const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
   assert.match(readme, /Start Workflow/);
 });
+
+test("public documentation and onboarding always use the renamed Proof Atlas URLs", async () => {
+  const paths = [
+    "../README.md",
+    "../docs/GETTING_STARTED.md",
+    "../SCHEMA.md",
+    "../prompts/start-with-gpt-work.md",
+    "../templates/instructor-workspace/README.md",
+    "../src/app.js"
+  ];
+  const contents = await Promise.all(paths.map((path) =>
+    readFile(new URL(path, import.meta.url), "utf8")
+  ));
+  for (const [index, content] of contents.entries()) {
+    assert.doesNotMatch(content, /hoooopla\\/(?:Math-hyper-graph-visualization-)/,
+      `Outdated GitHub repository link in ${paths[index]}`);
+    assert.doesNotMatch(content, /hoooopla\\.github\\.io\\/Math-hyper-graph-visualization-/,
+      `Outdated website link in ${paths[index]}`);
+  }
+  const [readme, gettingStarted, schema, prompt, workspace, app] = contents;
+  assert.match(readme, /https:\/\/hoooopla\.github\.io\/proof-atlas\//);
+  assert.match(gettingStarted, /https:\/\/github\.com\/hoooopla\/proof-atlas/);
+  assert.match(schema, /https:\/\/hoooopla\.github\.io\/proof-atlas\//);
+  assert.match(prompt, /https:\/\/github\.com\/hoooopla\/proof-atlas/);
+  assert.match(prompt, /https:\/\/hoooopla\.github\.io\/proof-atlas\//);
+  assert.match(workspace, /https:\/\/github\.com\/hoooopla\/proof-atlas/);
+  assert.match(app, /github\.com\/hoooopla\/proof-atlas\/blob\/main\/docs\/GETTING_STARTED\.md/);
+});

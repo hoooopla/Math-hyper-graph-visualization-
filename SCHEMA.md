@@ -3,7 +3,7 @@
 This repository uses one **canonical** YAML representation for a mathematical proof
 hypergraph. The normative structural schema is
 [`schema/solution-graph.schema.json`](schema/solution-graph.schema.json).
-The public [Proof Atlas](https://hoooopla.github.io/Math-hyper-graph-visualization-/) viewer consumes the same
+The public [Proof Atlas](https://hoooopla.github.io/proof-atlas/) viewer consumes the same
 format. The graph is mathematical data, not a grading or UI-layout document.
 
 ## Required top-level keys
