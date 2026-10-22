@@ -10,7 +10,7 @@ belong in a **separate instructor-owned repository**, preferably private.
 - `app/`: client-side graph viewer/editor and frontend tests.
 - `core/SCHEMA.md`, `core/schema/`: normative mathematical YAML v1.0.
 - `core/validation/validate_graphs.py`: structural graph validator.
-- `workflow/`: GPT Work generation, early assignment policy, independent verification and onboarding.
+- `workflow/`: GPT Work generation, optional submission discovery, early assignment policy, independent verification and onboarding.
 - `templates/instructor-workspace/`: private instructor starter and manifest.
 - `examples/`: synthetic example only.
 - `scripts/`: build and workspace generation tooling.
@@ -19,12 +19,20 @@ Before changing mathematical workflow files read `core/SCHEMA.md`,
 `core/schema/solution-graph.schema.json`,
 `workflow/generate-solution-graph.md`, and
 `workflow/verify-solution-graph.md`. AI must first identify likely proof strategies and theorem dependencies
-for an entire assignment, then **pause early** for explicit instructor
-Cite / Derive / Exclude decisions **before full graph construction**.
+for an entire assignment, then (only if explicitly opted in and provided
+with authorized submissions) preview student answers for **candidate
+strategies, theorem dependencies and mistake patterns**, without
+individual judgments or grades. Document how many files/problems were
+actually screened and which are unreadable or unreviewed. Keep originals
+and identifying alias maps out of Git commits and public repositories.
+Then **pause early** for a single consolidated instructor Cite / Derive
+/ Exclude checkpoint **before full graph construction**.
 Save those decisions only in that assignment's `policy.yaml`, with
 real evidence and problem scope. Previous assignments do not transfer
 permission. Request only delta decisions for later new dependencies.
-Independently verify all mathematical inferences after the checkpoint.
+Independently verify all mathematical inferences after the checkpoint,
+including every candidate inference found in the opt-in preview. Common
+usage is not evidence of mathematical correctness.
 Course policy is distinct from theorem applicability and final graph approval.
 
 When these instructions are copied to an instructor-owned workspace,

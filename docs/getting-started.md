@@ -17,21 +17,30 @@ instructor uses a separate GitHub repository** for their assignments.
    to copy only the relevant files into your repository. The public
    `core/` and `workflow/` files become instructor-side
    `SCHEMA.md`, `schema/`, `prompts/` and `scripts/`.
-4. **Early checkpoint, before full proof graphs:** Work sketches the main
-   natural strategies for every problem, lists likely theorem dependencies
-   in one assignment-wide table and asks which are **Cited**, **Derived**,
-   or **Excluded**. Previous assignments can inform recommendations but
+4. Work first sketches the main natural strategies for every problem
+   **independently**, before any student submissions are read.
+   **Optional pre-audit discovery:** if you explicitly provide/authorize
+   student answers, Work can scan their mathematical methods in batches,
+   cluster candidate strategies/theorem uses/mistake patterns, inspect
+   unusual approaches, and report precise coverage and limitations in a
+   private, de-identified `discovery.md`. **No student grades or
+   individual correctness judgments** occur at this stage.
+5. **Early checkpoint, before full proof graphs:** Work deduplicates
+   theorem dependencies from independent analysis and optional discovery
+   into one assignment-wide table. You decide **Cite**, **Derive** or
+   **Exclude**. Previous assignments can inform recommendations but
    never automatically authorize theorem use in a new assignment.
-5. After your explicit decisions, Work creates
+6. After your explicit decisions, Work creates
    `assignments/<assignment-id>/policy.yaml` from the inert
    `templates/assignment-policy.template.yaml` in your private repo.
    The policy records exact statements, problem scope, and real
    instructor-approval evidence, including explicitly approved overrides.
-6. Work now builds complete proofs and independently verifies mathematics.
+7. Work now builds complete proofs and independently verifies mathematics,
+   including all candidate routes suggested by the optional preview.
    If a previously unapproved theorem or nonroutine step arises, it asks
    **only for that new dependency**, preserves earlier approvals and
    re-verifies affected routes.
-7. Work validates graph YAML and opens a PR with the assignment policy,
+8. Work validates graph YAML and opens a PR with the assignment policy,
    each `graph.yaml` and concise `verification.md`. Review mathematics
    and policy before merging.
 
@@ -63,7 +72,9 @@ schema/solution-graph.schema.json
 prompts/generate-solution-graph.md
 prompts/verify-solution-graph.md
 prompts/assignment-policy.md
+prompts/preaudit-discovery.md
 templates/assignment-policy.template.yaml
+templates/discovery-report.template.md
 scripts/validate_graphs.py
 requirements.txt
 examples/commuting-square-roots/
@@ -85,6 +96,7 @@ course materials. For example:
 ```text
 assignments/
   HW01/
+    discovery.md  # optional, private, de-identified
     policy.yaml
     P01/graph.yaml
     P01/verification.md
@@ -99,6 +111,33 @@ Keep only confirmed instructor decisions in it; per-problem
 `verification.md` files reference the approved entries and exceptions.
 The exact format and problem-specific override rules are in
 [Assignment policy](../workflow/assignment-policy.md).
+
+## Optional pre-audit discovery from many student answers
+
+Only run this when the instructor explicitly opts in and supplies
+authorized submissions to GPT Work or a private connected workspace.
+You may provide them in batches if the file count is large; there is
+no built-in bulk student-PDF uploader on the public Proof Atlas site.
+The browser viewer is for `graph.yaml`, not confidential student data.
+
+Work first independently sketches problem strategies, then previews
+every accessible submission/problem for short **mathematical signatures**.
+It groups equivalent approaches, examines representatives and outliers,
+and tracks total/unique/opened/unreadable/not-checked files. It reports
+only candidate approaches, possible theorem uses, potential common
+mistake families and unresolved mathematical questions. It does **not**
+judge or grade any student's work, and does not automatically alter
+`graph.yaml` or theorem permissions.
+
+Use [Pre-audit discovery prompt](../workflow/preaudit-discovery.md) and
+the private `templates/discovery-report.template.md`. If authorized,
+keep a **de-identified** `assignments/HWxx/discovery.md` in your
+private instructor repository. Keep original student files, identifiers
+and alias mappings in ignored private storage, not Git commits.
+Comply with institutional data rules before uploading student work.
+Coverage can be incomplete; missing/illegible portions must be reported,
+not guessed. Discovery reduces but cannot eliminate later unforeseen
+proof paths or theorem-policy decisions.
 
 ## Inspect and iterate
 

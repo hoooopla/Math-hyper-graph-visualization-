@@ -9,12 +9,21 @@ https://github.com/hoooopla/proof-atlas .
 In GPT Work, attach the entire assignment PDF and direct the agent to
 read `AGENTS.md`, `SCHEMA.md`,
 `prompts/generate-solution-graph.md`,
-`prompts/verify-solution-graph.md` and
-`prompts/assignment-policy.md`.
+`prompts/verify-solution-graph.md`,
+`prompts/assignment-policy.md` and
+`prompts/preaudit-discovery.md`.
 
-**Before producing full proof graphs**, Work sketches natural approaches,
-collects likely substantial theorem dependencies across all problems, and
-shows **one deduplicated Cite / Derive / Exclude checkpoint**. It must wait
+**Before producing full proof graphs**, Work independently sketches
+natural approaches. If the instructor *explicitly opts in* and supplies
+student answers, Work optionally previews all accessible answers in
+batches, clusters mathematical signatures, inspects rare/outlier methods,
+and notes potential mistake patterns. The stage does **not** judge or
+grade individual students. The de-identified optional report is
+`assignments/<assignment-id>/discovery.md`, based on
+`templates/discovery-report.template.md` and documenting honest coverage
+(including missing, unreadable and unreviewed files). Work then compiles
+**one deduplicated Cite / Derive / Exclude checkpoint** combining its
+independent approaches with independently assessed discovery candidates. It must wait
 for your explicit choices; earlier assignments are context about progress,
 not authorization for this one.
 
@@ -26,6 +35,7 @@ decisions only for newly discovered dependencies.
 ```text
 assignments/
   HW01/
+    discovery.md                 # optional, de-identified, no grades
     policy.yaml                  # created only after explicit decisions
     P01/
       graph.yaml
@@ -36,6 +46,10 @@ assignments/
   HW02/
     policy.yaml                  # independent approvals, not inherited
 ```
+
+The assignment policy and optional discovery report are both **outside**
+the canonical graph YAML schema. Source PDFs, student names and alias
+mapping must not be committed. The report is not a verified solution.
 
 The `policy.yaml` is outside the canonical `graph.yaml` schema.
 Per-problem reports reference the assignment policy and record exceptions

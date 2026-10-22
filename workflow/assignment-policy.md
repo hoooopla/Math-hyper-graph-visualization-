@@ -9,24 +9,34 @@ about course progress, **not authorization for later assignments**.
 ## Why an early checkpoint?
 
 1. Read all problems and reference material. Identify their hypotheses,
-   main *candidate* strategies and likely named theorems or nonroutine steps.
+   main *candidate* strategies and likely named theorems or nonroutine steps
+   **independently before consulting student submissions**.
    Verify candidate theorem statements/hypotheses enough to formulate a
    meaningful question. **Do not generate complete graph YAML yet.**
-2. Deduplicate candidate dependencies across problems; present one
+2. **Optional, explicitly instructor-authorized discovery:** Before
+   the one checkpoint, review student submissions in the private
+   instructor context according to `prompts/preaudit-discovery.md`.
+   Broadly screen submissions, cluster methods, inspect unusual
+   mathematical ideas and record exact coverage in a de-identified
+   `discovery.md`. Combine independently investigated theorem/step
+   candidates with the preliminary list. Do not grade students or
+   automatically accept student arguments. Skip entirely without
+   instructor opt-in or supplied submissions.
+3. Deduplicate candidate dependencies across problems; present one
    assignment-wide table with:
    - provisional theorem/step ID and precise result;
    - affected problem IDs and proposed method;
    - required mathematical hypotheses and whether their applicability is
      known, uncertain or needs proof;
    - suggested `cite`, `derive` or `exclude`, explicitly unapproved.
-3. **Stop for an explicit instructor response before graph commits.** Ask
+4. **Stop for an explicit instructor response before graph commits.** Ask
    whether otherwise implicit arguments must be written out, too. Do not
    turn a suggestion, prior assignment, or silence into approval.
-4. After decisions, produce `policy.yaml` **only for confirmed items**.
+5. After decisions, produce `policy.yaml` **only for confirmed items**.
    Build the full graph subject to those decisions, adversarially verify
    it, validate the canonical YAML, and submit a reviewable PR with
    `policy.yaml`, per-problem `graph.yaml` and `verification.md`.
-5. During development, if a *new* theorem/step, changed theorem statement,
+6. During development, if a *new* theorem/step, changed theorem statement,
    changed use/scope, or conflicting problem-specific requirement arises,
    **stop only the affected route(s)**, present a delta decision table,
    obtain explicit approval, update the assignment policy, and reverify

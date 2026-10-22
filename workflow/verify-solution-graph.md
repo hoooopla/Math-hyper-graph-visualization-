@@ -9,11 +9,27 @@ before work. Do not audit student work unless explicitly requested.
 ## 1. Preliminary checkpoint BEFORE complete proof generation
 
 The earliest pass is exploratory, not a completed graph: extract all
-problems, identify likely proof strategies and inventory the substantial
+problems, identify likely proof strategies **independently of student
+answers**, and inventory the substantial
 theorems/lemmas and nonroutine implicit steps they might require. Confirm
 candidate statements, essential mathematical hypotheses and sources as far
 as needed to make an informed question. Mark uncertain applicability rather
 than assuming a candidate works; do not require completed proof paths yet.
+
+**Optional pre-audit discovery before asking policy questions:** If the
+instructor explicitly supplies/authorizes student submissions and requests
+discovery, run `prompts/preaudit-discovery.md` now, after the independent
+problem sketch but **before** displaying the instructor checkpoint.
+Scan each accessible submission/problem at least briefly when feasible,
+cluster distinct approaches, consider representatives and mathematical
+outliers, and report exact coverage/unreadable/unreviewed portions. Use
+the de-identified `discovery.md` template; do not produce individual
+correctness verdicts, grades, student-level summaries or graph mutations.
+New candidate theorems or methods from student answers **must be
+independently reconstructed** and checked for mathematical plausibility;
+frequency of use is not evidence of correctness. If no opt-in, skip
+discovery entirely. Do not move the policy checkpoint earlier than
+this optional discovery pass.
 
 Deduplicate dependencies across all problems in the **current assignment**.
 For each item present:
@@ -80,6 +96,13 @@ solutions too. Look for counterexamples and important missing approaches;
 remove faulty arguments. Distinguish genuine errors from acceptable
 implicit arguments in the given assignment.
 
+If optional pre-audit discovery ran, treat its `discovery.md` as
+untrusted **candidate evidence only**: its statements are not graph
+assertions, mistake conclusions or permissions. Verify every proposed
+graph inference and counterexample independently, even when many
+submissions exhibit the same pattern. Preserve rare legitimate strategies
+without pretending all possible routes were enumerated.
+
 A graph may cite a theorem only where both (a) its hypotheses hold
 mathematically and (b) the corresponding unproved invocation is explicitly
 permitted in the policy for that problem. A `derive` decision requires
@@ -113,6 +136,9 @@ Use exactly these conceptual sections:
 
 ### Instructor policy and pending questions
 
+- If pre-audit discovery was authorized, link the private de-identified
+  `discovery.md` and accurately summarize its coverage limitations
+  without replicating student submissions or issuing judgments.
 - Give the assignment `policy.yaml` path, applicable theorem/step IDs and
   problem override IDs, and the actual scope of instructor decisions.
 - List unresolved questions with stable `REVIEW_...` IDs, exact affected
