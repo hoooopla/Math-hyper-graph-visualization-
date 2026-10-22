@@ -5,19 +5,28 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createWorkspace } from "../scripts/create-instructor-workspace.mjs";
 
-test("instructor starter uses canonical files, not viewer or student data", async () => {
-  const parent = await mkdtemp(join(tmpdir(), "proof-atlas-test-"));
+test("workspace generator creates only intended private-repository files", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "proof-atlas-workspace-"));
   const target = join(parent, "instructor");
   try {
     await createWorkspace(target);
-    const files = await readdir(target);
-    assert.deepEqual(files.sort(), [".gitignore",".github","AGENTS.md","README.md","SCHEMA.md","examples","prompts","requirements.txt","schema","scripts"].sort());
+    assert.deepEqual((await readdir(target)).sort(), [
+      ".github", ".gitignore", "AGENTS.md", "README.md", "SCHEMA.md",
+      "examples", "prompts", "requirements.txt", "schema", "scripts"
+    ].sort());
+
     const agent = await readFile(join(target, "AGENTS.md"), "utf8");
+    const generator = await readFile(join(target, "prompts/generate-solution-graph.md"), "utf8");
+    const verifier = await readFile(join(target, "prompts/verify-solution-graph.md"), "utf8");
     assert.match(agent, /Pre-commit instructor gate/);
-    const verification = await readFile(join(target, "prompts/verify-solution-graph.md"), "utf8");
-    assert.match(verification, /Cite \/ Derive \/ Exclude/);
-    const schema = JSON.parse(await readFile(join(target, "schema/solution-graph.schema.json"), "utf8"));
-    assert.ok(schema.properties.edges.items.properties.uses);
+    assert.match(generator, /Pause for an explicit response/);
+    assert.match(verifier, /Cite \/ Derive \/ Exclude/);
+    const publicSchema = await readFile(new URL("../core/schema/solution-graph.schema.json", import.meta.url));
+    const privateSchema = await readFile(join(target, "schema/solution-graph.schema.json"));
+    assert.deepEqual(publicSchema, privateSchema, "private schema must exactly match public authority");
+    const publicValidator = await readFile(new URL("../core/validation/validate_graphs.py", import.meta.url));
+    const privateValidator = await readFile(join(target, "scripts/validate_graphs.py"));
+    assert.deepEqual(publicValidator, privateValidator, "private validator must be the same maintained file");
     assert.match(await readFile(join(target, ".github/workflows/validate.yml"), "utf8"), /validate_graphs\.py/);
     assert.match(await readFile(join(target, "examples/commuting-square-roots/graph.yaml"), "utf8"), /EXAMPLE_COMMUTING_SQUARE_ROOTS/);
     await assert.rejects(createWorkspace(target), /already exists/);
@@ -26,38 +35,51 @@ test("instructor starter uses canonical files, not viewer or student data", asyn
   }
 });
 
-test("workflow on main has independent theorem gate and no hardcoded private repository", async () => {
-  const source = await readFile(new URL("../prompts/generate-solution-graph.md", import.meta.url), "utf8");
-  assert.match(source, /Pause for an explicit response/);
-  assert.doesNotMatch(source, /hoooopla\/Math-homework-audit/);
-  const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
-  assert.match(readme, /Start Workflow/);
+test("workspace manifest has explicit unique paths and never copies frontend", async () => {
+  const data = JSON.parse(await readFile(new URL("../templates/instructor-workspace/manifest.json", import.meta.url), "utf8"));
+  assert.equal(data.version, 2);
+  assert.ok(data.files.length > 0);
+  const outputs = data.files.map((entry) => entry.destination);
+  assert.equal(new Set(outputs).size, outputs.length);
+  assert.ok(data.files.some((entry) => entry.source === "core/schema/solution-graph.schema.json" && entry.destination === "schema/solution-graph.schema.json"));
+  assert.ok(data.files.some((entry) => entry.source === "templates/instructor-workspace/AGENTS.md" && entry.destination === "AGENTS.md"));
+  assert.equal(data.files.some((entry) => entry.source.startsWith("app/")), false);
 });
 
-test("public documentation and onboarding always use the renamed Proof Atlas URLs", async () => {
+test("public workflow advertises new paths and precommit human decision gate", async () => {
+  const agent = await readFile(new URL("../AGENTS.md", import.meta.url), "utf8");
+  const start = await readFile(new URL("../workflow/start-with-gpt-work.md", import.meta.url), "utf8");
+  const generator = await readFile(new URL("../workflow/generate-solution-graph.md", import.meta.url), "utf8");
+  const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
+  const pages = await readFile(new URL("../.github/workflows/pages.yml", import.meta.url), "utf8");
+  assert.match(agent, /core\/SCHEMA\.md/);
+  assert.match(start, /core\/schema\/solution-graph\.schema\.json/);
+  assert.match(start, /docs\/getting-started\.md/);
+  assert.match(generator, /Pause for an explicit response/);
+  assert.match(readme, /Start Workflow/);
+  assert.match(pages, /path: dist/);
+  assert.doesNotMatch(pages, /path: \.\s*$/m);
+});
+
+test("current website and repo links appear in all public onboarding files", async () => {
   const paths = [
     "../README.md",
-    "../docs/GETTING_STARTED.md",
-    "../SCHEMA.md",
-    "../prompts/start-with-gpt-work.md",
+    "../docs/getting-started.md",
+    "../core/SCHEMA.md",
+    "../workflow/start-with-gpt-work.md",
     "../templates/instructor-workspace/README.md",
-    "../src/app.js"
+    "../app/src/app.js"
   ];
   const contents = await Promise.all(paths.map((path) =>
     readFile(new URL(path, import.meta.url), "utf8")
   ));
   for (const [index, content] of contents.entries()) {
-    assert.equal(content.includes("hoooopla/Math-hyper-graph-visualization-"), false,
-      `Outdated GitHub repository link in ${paths[index]}`);
-    assert.equal(content.includes("hoooopla.github.io/Math-hyper-graph-visualization-"), false,
-      `Outdated website link in ${paths[index]}`);
+    assert.equal(content.includes("hoooopla/Math-hyper-graph-visualization-"), false, paths[index]);
+    assert.equal(content.includes("hoooopla.github.io/Math-hyper-graph-visualization-"), false, paths[index]);
   }
-  const [readme, gettingStarted, schema, prompt, workspace, app] = contents;
-  assert.match(readme, /https:\/\/hoooopla\.github\.io\/proof-atlas\//);
-  assert.match(gettingStarted, /https:\/\/github\.com\/hoooopla\/proof-atlas/);
-  assert.match(schema, /https:\/\/hoooopla\.github\.io\/proof-atlas\//);
-  assert.match(prompt, /https:\/\/github\.com\/hoooopla\/proof-atlas/);
-  assert.match(prompt, /https:\/\/hoooopla\.github\.io\/proof-atlas\//);
-  assert.match(workspace, /https:\/\/github\.com\/hoooopla\/proof-atlas/);
-  assert.match(app, /github\.com\/hoooopla\/proof-atlas\/blob\/main\/docs\/GETTING_STARTED\.md/);
+  assert.match(contents[0], /https:\/\/hoooopla\.github\.io\/proof-atlas\//);
+  assert.match(contents[1], /https:\/\/github\.com\/hoooopla\/proof-atlas/);
+  assert.match(contents[2], /https:\/\/hoooopla\.github\.io\/proof-atlas\//);
+  assert.match(contents[3], /https:\/\/github\.com\/hoooopla\/proof-atlas/);
+  assert.match(contents[5], /github\.com\/hoooopla\/proof-atlas\/blob\/main\/docs\/getting-started\.md/);
 });
