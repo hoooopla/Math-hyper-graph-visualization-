@@ -1,0 +1,14 @@
+*.pdf
+submissions/
+student-submissions/
+students/
+uploads/
+private/
+.env
+.env.*
+*.key
+*.pem
+.venv/
+__pycache__/
+*.py[cod]
+.DS_Store

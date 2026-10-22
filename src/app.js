@@ -39,6 +39,28 @@ root.innerHTML = `
     </nav>
     <input id="yaml-file" hidden type="file" multiple accept=".yaml,.yml,text/yaml">
     <div class="drop-overlay" hidden>${icon("upload", 28)}<strong>Drop YAML to inspect</strong><span>Nothing is uploaded to a server</span></div>
+    <div class="workflow-overlay" hidden>
+      <div class="workflow-scrim" data-action="close-workflow"></div>
+      <section class="workflow-dialog" role="dialog" aria-modal="true" aria-labelledby="workflow-title">
+        <button class="workflow-close" data-action="close-workflow" aria-label="Close workflow guide">${icon("close", 20)}</button>
+        <span class="eyebrow">Instructor onboarding</span>
+        <h2 id="workflow-title">Start a Math Homework Audit workspace</h2>
+        <p>Use your own GitHub repository and GPT Work. Proof Atlas only displays and edits local YAML; AI tasks run in your GPT Work session.</p>
+        <ol>
+          <li>Copy the setup instructions into GPT Work and connect <strong>your own</strong> GitHub repository.</li>
+          <li>Attach a problem PDF. GPT Work will ask which theorems may be cited, derived, or excluded <strong>before committing</strong>.</li>
+          <li>Review each proposed YAML and verification report in your own repository. Keep student submissions private.</li>
+        </ol>
+        <label for="workflow-prompt">Copy into GPT Work</label>
+        <textarea id="workflow-prompt" readonly spellcheck="false" aria-label="GPT Work setup prompt" placeholder="Loading instructions…"></textarea>
+        <p class="workflow-message" role="status" aria-live="polite"></p>
+        <div class="workflow-actions">
+          <button class="upload-button" data-action="copy-workflow" disabled>Copy prompt</button>
+          <a class="header-action" href="https://github.com/hoooopla/Math-hyper-graph-visualization-/blob/main/docs/GETTING_STARTED.md" target="_blank" rel="noopener noreferrer">Setup guide ↗</a>
+          <a class="header-action" href="https://github.com/hoooopla/Math-hyper-graph-visualization-" target="_blank" rel="noopener noreferrer">Source ↗</a>
+        </div>
+      </section>
+    </div>
   </main>`;
 
 const shell = root.querySelector(".app-shell");
@@ -82,6 +104,34 @@ resizer.addEventListener("keydown", (event) => {
 });
 const fileInput = root.querySelector("#yaml-file");
 const overlay = root.querySelector(".drop-overlay");
+const workflowModal = root.querySelector(".workflow-overlay");
+const workflowPrompt = root.querySelector("#workflow-prompt");
+const workflowMessage = root.querySelector(".workflow-message");
+const workflowCopy = root.querySelector('[data-action="copy-workflow"]');
+let workflowLoaded = false;
+
+async function showWorkflow() {
+  workflowModal.hidden = false;
+  workflowModal.querySelector(".workflow-close").focus();
+  if (workflowLoaded) return;
+  workflowMessage.textContent = "Loading the public workflow prompt…";
+  try {
+    const response = await fetch("./prompts/start-with-gpt-work.md");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    workflowPrompt.value = (await response.text()).trim();
+    workflowCopy.disabled = !workflowPrompt.value;
+    workflowMessage.textContent = "Use this prompt in your own GPT Work conversation.";
+    workflowLoaded = true;
+  } catch {
+    workflowMessage.textContent = "Could not load the setup prompt. Open prompts/start-with-gpt-work.md in the public GitHub repository.";
+  }
+}
+
+function hideWorkflow() {
+  workflowModal.hidden = true;
+  topbar.querySelector('[data-action="start-workflow"]')?.focus();
+}
+
 
 function render() {
   shell.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
@@ -99,6 +149,7 @@ function renderHeader() {
   topbar.innerHTML = `
     <div class="brand-mark">${icon("atlas")}<span>PROOF ATLAS</span><em>01</em></div>
     <button class="sidebar-toggle" data-action="toggle-sidebar" aria-label="${state.sidebarCollapsed ? "Show left panel" : "Hide left panel"}" aria-pressed="${state.sidebarCollapsed}">${icon(state.sidebarCollapsed ? "panel-open" : "panel-close")}<span>${state.sidebarCollapsed ? "Show panel" : "Hide panel"}</span></button>
+    <button class="header-action start-workflow-cta" data-action="start-workflow" aria-haspopup="dialog">${icon("branch", 14)}<span>Start Workflow</span></button>
     <div class="file-chip">${icon("file")}<span>${escapeHtml(state.fileName)}</span></div>
     <button type="button" class="status-chip ${valid ? "valid" : "invalid"}" data-select-type="validation" data-select-id="report" aria-label="Inspect structural validation results">
       ${icon(valid ? "shield" : "warning")}<span>${valid ? `Valid · ${state.report.warnings.length} warnings` : `${state.report.errors.length} errors`}</span>
@@ -482,6 +533,20 @@ function applyView() {
 
 root.addEventListener("click", async (event) => {
   const action = event.target.closest("[data-action]")?.dataset.action;
+  if (action === "start-workflow") { await showWorkflow(); return; }
+  if (action === "close-workflow") { hideWorkflow(); return; }
+  if (action === "copy-workflow") {
+    if (!workflowPrompt.value) return;
+    try {
+      await navigator.clipboard.writeText(workflowPrompt.value);
+      workflowMessage.textContent = "Prompt copied. Paste it into GPT Work.";
+    } catch {
+      workflowPrompt.focus();
+      workflowPrompt.select();
+      workflowMessage.textContent = "Copy the selected prompt manually.";
+    }
+    return;
+  }
   if (action === "upload") fileInput.click();
   if (action === "compare") {
     state.exportOpen = false;
@@ -610,6 +675,10 @@ root.addEventListener("change", (event) => {
     state.activePath = null;
     render();
   }
+});
+
+root.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !workflowModal.hidden) hideWorkflow();
 });
 
 fileInput.addEventListener("change", () => loadFiles([...fileInput.files]));

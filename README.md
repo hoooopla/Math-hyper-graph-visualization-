@@ -1,59 +1,55 @@
-# Proof Atlas
+# Proof Atlas — Mathematical Proof Audit Workspace
 
-A dependency-free, client-side viewer for mathematical solution hypergraphs expressed as YAML. Uploaded files never leave the browser.
+**Proof Atlas** is a public, browser-based solution hypergraph viewer/editor **and** the canonical GPT Work workflow for independently developing, mathematically verifying, and reviewing solution graphs.
 
-## Run locally
+[Open Proof Atlas](https://hoooopla.github.io/Math-hyper-graph-visualization-/) · [Getting started](docs/GETTING_STARTED.md) · [AI generation workflow](prompts/generate-solution-graph.md) · [Verification workflow](prompts/verify-solution-graph.md)
 
-```bash
-npm run dev
-```
+## Start with your own GPT Work
 
-Then open <http://127.0.0.1:4173>.
+Open the website and choose **Start Workflow** to copy the setup prompt, or copy it directly from [prompts/start-with-gpt-work.md](prompts/start-with-gpt-work.md). Paste it in GPT Work and connect GitHub to a repository **you own** (preferably private for teaching data).
 
-## Verify
+GPT Work should initialize the instructor workspace, read the canonical schema, and analyze your attached problem PDF. **Before committing a new or changed graph**, it must ask which theorems may be **Cited**, must be **Derived**, or are **Excluded**, including course-specific justification requirements. After your answer it verifies and validates each graph, writes `graph.yaml` plus a concise `verification.md`, and proposes a PR for your review. Do not merge mathematical changes without instructor approval.
 
-```bash
+If repository creation or command execution is unavailable to Work, follow the [manual setup guide](docs/GETTING_STARTED.md). The public app stores **no student data** and does not automatically run GPT Work.
+
+## Repository structure
+
+| Location | Responsibility |
+| --- | --- |
+| `src/`, `index.html`, `tests/` | Interactive browser-based proof graph reviewer and editor |
+| `prompts/` | Canonical GPT Work generation and adversarial verification workflow |
+| `SCHEMA.md`, `schema/` | **Single authoritative** solution graph YAML v1.0 specification |
+| `scripts/validate_graphs.py` | Deterministic structural validation |
+| `templates/instructor-workspace/` | Manifest and setup files for instructors' independent repositories |
+| `examples/` | Synthetic example only; **no real assignments or student work** |
+| `docs/` | Onboarding and review workflow |
+
+An instructor's own repository contains one `graph.yaml` and one `verification.md` per problem, plus a copy of the pinned workflow files. `visualization.md` is obsolete: the website renders YAML directly.
+
+## Website features
+
+Upload or drag in YAML locally (nothing is sent to the server). Review the Problem, Notation, and Theorems cards; inspect AND/OR inferences; select proof paths, annotate and verify nodes/edges/paths; compare two graphs; edit and export revised YAML or a change request for GPT Work. **The website is not an AI inference service.**
+
+## Developer checks
+
+Node.js 20+ and Python 3 are recommended:
+
+```sh
 npm run check
+python -m pip install -r requirements.txt
+python scripts/validate_graphs.py
 ```
 
-Phase 1 supports YAML upload and drag-and-drop, schema/reference validation, explicit AND-hyperedge rendering, node and inference inspection, theorem and mistake details, filters, search, path highlighting, zoom/pan, readable LaTeX source, and a responsive dark-mode layout.
+The Node suite checks viewer/editor behavior; the Python validator checks graph structure and references. Neither proves mathematical correctness. The CI workflow runs both checks.
 
-The graph workspace now includes **Problem**, **Notation**, and **Theorems**
-reference cards in a fixed strip above the interactive proof graph. Click them
-to inspect the full statement, source PDF/pages, ambiguities, notation dictionary,
-and theorem library (including hypotheses and usage links). These reference cards
-are presentation-only: they are not new mathematical premise nodes or edges.
+For a self-contained instructor workspace run:
 
-Choose any **Target goal** in the sidebar to browse and highlight that goal's
-proof paths. Click the validation status in the toolbar for errors and warnings.
-Node and inference inspectors include scope information, theorem details,
-known mistake IDs, and related inference navigation. All math is rendered with
-KaTeX; the canonical YAML schema is unchanged.
+```sh
+node scripts/create-instructor-workspace.mjs ./my-instructor-workspace
+```
 
-## Canonical YAML contract (v1.0)
+Then upload the resulting files to **your own private GitHub repository**.
 
-The authoritative mathematical format is documented in the private
-[Math-homework-audit repository](https://github.com/hoooopla/Math-homework-audit/blob/main/SCHEMA.md).
-This viewer also bundles a copy at `schema/solution-graph.schema.json`.
+## Privacy and scope
 
-- Use `schema_version: "1.0"`, `nodes[].assertion`, and
-  `theorems[].required_hypotheses`.
-- Write **inline LaTeX** as `$A+B=C$`.
-- Write **display LaTeX** as `\[ A+B=C \]` in YAML literal blocks (`|-`).
-- Use YAML single-quoted scalars or literal blocks so backslashes survive
-  without double-escaping.
-- Inferences are AND-hyperedges: `edges[].from` is a nonempty list of
-  prerequisite node IDs, `edges[].to` is one conclusion.
-- `claim` and `\( ... \)` remain accepted only for legacy uploads.
-- The full mathematical statement, edge justification, theorem hypotheses,
-  and known mistakes render in the clickable dark-mode inspector.
-
-### Test and build
-
-Run `npm run check` (Node.js 20+). It validates the parser, graph structure,
-math rendering, and static-site build. This is a schema/structural check;
-mathematical soundness still requires independent proof verification.
-
-For the current Analysis I graphs, upload any
-`analysis-I-homework-I/problem-{I,II,III,IV,V}/graph.yaml` from the homework
-repository; the browser parses each without requiring a server.
+The source code and workflow definitions are public. Never commit real student submissions, identifiers, grades, or private problem PDFs to this repository. Instructors retain responsibility for course policy and final mathematical approval. Student answer auditing is a separate, future workflow and is **not automatically performed** during solution graph generation.
