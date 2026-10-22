@@ -2,6 +2,7 @@ node_modules/
 dist/
 dist-workspace/
 instructor-workspace/
+my-instructor-workspace/
 *.pdf
 submissions/
 student-submissions/
