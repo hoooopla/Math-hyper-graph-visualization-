@@ -67,7 +67,7 @@ test("onboarding keeps discovery opt-in and outside canonical graph schema", asy
   assert.match(starter, /OPTIONAL PRE-AUDIT DISCOVERY/);
   assert.match(starter, /Without explicit opt-in, skip this stage/);
   assert.match(readme, /without\s+grading or judging any student's answer/);
-  assert.equal(manifest.version, 4);
+  assert.equal(manifest.version, 5);
   assert.ok(manifest.files.some(f => f.destination === "prompts/preaudit-discovery.md"));
   assert.ok(manifest.files.some(f => f.destination === "templates/discovery-report.template.md"));
   assert.doesNotMatch(spec, /discovery_report|student_submissions|gradebook/);

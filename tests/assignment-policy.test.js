@@ -60,7 +60,7 @@ test("assignment policy stays separate from the canonical graph schema", async (
   assert.equal(schema.properties.theorem_policy, undefined);
   assert.ok(schema.required.includes("theorems"));
   assert.ok(schema.required.includes("edges"));
-  assert.match(spec, /assignment's/);
+  assert.match(spec, /assignment directory/);
   assert.match(spec, /policy\.yaml/);
   assert.ok(manifest.files.some((file) =>
     file.source === "workflow/assignment-policy.md" && file.destination === "prompts/assignment-policy.md"));
