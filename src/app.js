@@ -21,6 +21,7 @@ const state = {
   activeDocument: null,
   compare: null,
   exportOpen: false,
+  showIds: localStorage.getItem("proof-atlas-show-ids") === "true",
 };
 
 root.innerHTML = `
@@ -186,7 +187,7 @@ function renderWorkspace() {
       ${contextCardsHtml(graph, state.selection, escapeHtml)}
     </div>
     <div class="graph-viewport">
-    <div class="canvas-tools"><button data-action="zoom-in" aria-label="Zoom in">${icon("plus")}</button><button data-action="zoom-out" aria-label="Zoom out">${icon("minus")}</button><button data-action="fit" aria-label="Fit graph">${icon("fit")}</button></div>
+    <div class="canvas-tools"><button data-action="zoom-in" aria-label="Zoom in">${icon("plus")}</button><button data-action="zoom-out" aria-label="Zoom out">${icon("minus")}</button><button data-action="fit" aria-label="Fit graph">${icon("fit")}</button><button class="id-toggle ${state.showIds ? "active" : ""}" data-action="toggle-ids" aria-label="${state.showIds ? "Hide" : "Show"} graph IDs" aria-pressed="${state.showIds}">IDs</button></div>
     ${state.selection?.type === "edge" ? `<div class="flow-legend"><span class="flow-in">Sources → inference</span><span class="flow-out">Inference → result</span></div>` : ""}
     ${visual.nodes.length ? graphWorldHtml(visual, selectedPath) : `<div class="empty-canvas">${icon("search", 24)}<span>No matching graph elements</span></div>`}
   </div>`;
@@ -212,22 +213,21 @@ function graphWorldHtml(visual, selectedPath) {
     const x2 = link.to.x;
     const y2 = link.to.y - (link.to.visualType === "method" ? 27 : 45);
     const mid = (y1 + y2) / 2;
-    const selectedEdge = state.selection?.type === "edge" ? state.report.graph.edges.find((edge) => edge.id === state.selection.id) : null;
-    const highlighted = selectedEdge?.id === link.edgeId;
+    const highlighted = state.selection?.type === "edge" && state.selection.id === link.edgeId;
     const role = highlighted ? (link.from.visualType === "method" ? "selected-outgoing" : "selected-incoming") : "";
-    return `<path class="${activeEdge(link.edgeId) && (!selectedEdge || highlighted) ? "" : "dimmed"} ${role}" d="M ${x1} ${y1} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${y2}" marker-end="url(#${role === "selected-incoming" ? "arrow-in" : role === "selected-outgoing" ? "arrow-out" : "arrow"})"></path>`;
+    return `<path class="${activeEdge(link.edgeId) ? "" : "dimmed"} ${role}" d="M ${x1} ${y1} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${y2}" marker-end="url(#${role === "selected-incoming" ? "arrow-in" : role === "selected-outgoing" ? "arrow-out" : "arrow"})"></path>`;
   }).join("");
   const nodes = visual.nodes.map((node) => {
     const style = `left:${node.x}px;top:${node.y}px`;
     if (node.visualType === "method") {
       const selected = state.selection?.type === "edge" && state.selection.id === node.id;
-      return `<button class="method-node ${selected ? "selected" : ""} ${activeEdge(node.id) && (state.selection?.type !== "edge" || selected) ? "" : "dimmed"}" style="${style}" data-select-type="edge" data-select-id="${escapeAttribute(node.id)}" title="${escapeAttribute(node.method)}">${icon("branch", 14)}<span>${escapeHtml(node.method)}</span></button>`;
+      return `<button class="method-node ${state.showIds ? "with-id" : ""} ${selected ? "selected" : ""} ${activeEdge(node.id) ? "" : "dimmed"}" style="${style}" data-select-type="edge" data-select-id="${escapeAttribute(node.id)}" title="${escapeAttribute(node.method)}">${icon("branch", 14)}<span class="method-label">${escapeHtml(node.method)}</span>${state.showIds ? `<small class="method-id">${escapeHtml(node.id)}</small>` : ""}</button>`;
     }
     const selected = state.selection?.type === "node" && state.selection.id === node.id;
     const edge = state.selection?.type === "edge" ? state.report.graph.edges.find((item) => item.id === state.selection.id) : null;
     const role = edge?.from.includes(node.id) ? "source-highlight" : edge?.to === node.id ? "target-highlight" : "";
     const verified = activeDoc().verification.nodes.get(node.id) === nodeFingerprint(state.report.graph, node.id);
-    return `<button class="assertion-node ${node.type} ${selected ? "selected" : ""} ${role} ${activeNode(node.id) && (!edge || role) ? "" : "dimmed"}" style="${style}" data-select-type="node" data-select-id="${escapeAttribute(node.id)}"><span class="node-topline"><em>${node.type}${verified ? ` ${icon("check", 12)} verified` : ""}</em><small>${escapeHtml(node.id)}</small></span><span class="node-claim math-text">${mathHtml(node.claim)}</span></button>`;
+    return `<button class="assertion-node ${node.type} ${selected ? "selected" : ""} ${role} ${activeNode(node.id) ? "" : "dimmed"}" style="${style}" data-select-type="node" data-select-id="${escapeAttribute(node.id)}"><span class="node-topline"><em>${node.type}</em>${verified ? `<span class="verified-badge" role="img" aria-label="Verified" title="Verified">${icon("check", 12)}</span>` : ""}</span>${state.showIds ? `<small class="graph-id">${escapeHtml(node.id)}</small>` : ""}<span class="node-claim math-text">${mathHtml(node.claim)}</span></button>`;
   }).join("");
   return `<div class="graph-world" style="width:${visual.width}px;height:${visual.height}px"><svg class="links" width="${visual.width}" height="${visual.height}" viewBox="0 0 ${visual.width} ${visual.height}"><defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker id="arrow-in" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker id="arrow-out" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker></defs>${links}</svg>${nodes}</div>`;
 }
@@ -520,6 +520,7 @@ root.addEventListener("click", async (event) => {
     render();
   }
   if (action === "clear-search") { state.query = ""; render(); }
+  if (action === "toggle-ids") { state.showIds = !state.showIds; localStorage.setItem("proof-atlas-show-ids", String(state.showIds)); renderWorkspace(); }
   if (action === "example") loadSource(sampleGraphYaml, "example-graph.yaml");
   if (action === "zoom-in") zoom(1.15);
   if (action === "zoom-out") zoom(.87);
