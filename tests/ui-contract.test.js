@@ -6,7 +6,7 @@ test("the page includes the editor and comparison assets in its static build", a
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const build = await readFile(new URL("../scripts/build.mjs", import.meta.url), "utf8");
   assert.match(html, /styles\.css\?v=phase2-review-v1/);
-  assert.match(html, /app\.js\?v=phase2-review-v1/);
+  assert.match(html, /app\.js\?v=phase2-review-v2/);
   assert.match(build, /review-core\.js/);
 });
 

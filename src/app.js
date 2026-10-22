@@ -347,7 +347,7 @@ function loadSource(source, name) {
 
 function activateDocument(key) {
   const current = activeDoc();
-  if (current) { current.selection = state.selection; current.view = { ...state.view }; current.goalId = state.goalId; }
+  if (current) { if (state.selection?.type !== "difference") current.selection = state.selection; current.view = { ...state.view }; current.goalId = state.goalId; }
   const doc = state.documents.find((entry) => entry.key === key);
   if (!doc) return;
   state.activeDocument = key;
@@ -456,10 +456,11 @@ root.addEventListener("click", async (event) => {
   if (action === "compare") {
     state.exportOpen = false;
     state.compare = state.compare ? null : { before: state.documents[0].key, after: state.activeDocument };
-    state.selection = { type: "validation", id: "report" };
+    state.selection = state.compare ? { type: "validation", id: "report" } : { type: "context", id: "problem" };
+    state.mobilePanel = null;
     render();
   }
-  if (action === "export") { state.compare = null; state.exportOpen = !state.exportOpen; render(); }
+  if (action === "export") { state.compare = null; state.exportOpen = !state.exportOpen; if (state.selection?.type === "difference") state.selection = { type: "context", id: "problem" }; state.mobilePanel = null; render(); }
   if (action === "download-yaml" && !state.report.errors.length) {
     try { downloadText(activeDoc().name.replace(/\.ya?ml$/i, "") + ".updated.yaml", serializeYaml(state.report.graph)); }
     catch (error) { window.alert(error.message); }
@@ -468,7 +469,7 @@ root.addEventListener("click", async (event) => {
   const tab = event.target.closest("[data-tab]");
   if (tab) { state.compare = null; activateDocument(tab.dataset.tab); return; }
   const difference = event.target.closest("[data-difference]");
-  if (difference) { state.selection = { type: "difference", id: difference.dataset.difference }; renderInspector(); workspace.querySelectorAll(".review-row").forEach((row) => row.classList.toggle("selected", row === difference)); return; }
+  if (difference) { state.selection = { type: "difference", id: difference.dataset.difference }; if (window.innerWidth <= 760) { state.mobilePanel = "inspector"; inspector.classList.add("mobile-open"); } renderInspector(); workspace.querySelectorAll(".review-row").forEach((row) => row.classList.toggle("selected", row === difference)); return; }
   const review = event.target.closest("[data-review]");
   if (review) {
     const revised = state.documents.find((doc) => doc.key === state.compare.after);
