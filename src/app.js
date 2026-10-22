@@ -1,7 +1,8 @@
-import { buildVisualGraph, enumerateProofPaths, getRelatedMistakes, NODE_TYPES, parseGraphYaml } from "./graph-core.js?v=cycle-safe-layout-v1";
+import { buildVisualGraph, enumerateProofPaths, getRelatedMistakes, NODE_TYPES, parseGraphYaml, validateGraph } from "./graph-core.js?v=cycle-safe-layout-v1";
 import { sampleGraphYaml } from "./sampleGraph.js?v=canonical-sample-v1";
 import { renderMath } from "./math-render.js";
-import { contextCardsHtml, contextInspectorHtml, theoremInspectorHtml } from "./context-ui.js";
+import { contextCardsHtml, contextInspectorHtml } from "./context-ui.js";
+import { serializeYaml, compareGraphs, changeRequest } from "./review-core.js";
 const root = document.querySelector("#root");
 const TYPE_LABELS = { premise: "Premises", milestone: "Milestones", goal: "Goals" };
 const state = {
@@ -15,11 +16,16 @@ const state = {
   view: { x: 0, y: 42, scale: 1 },
   mobilePanel: null,
   sidebarCollapsed: localStorage.getItem("proof-atlas-sidebar-collapsed") === "true",
+  documents: [],
+  activeDocument: null,
+  compare: null,
+  exportOpen: false,
 };
 
 root.innerHTML = `
   <main class="app-shell">
     <header class="topbar"></header>
+    <div class="tabbar" role="tablist" aria-label="Open graphs"></div>
     <aside class="sidebar"></aside>
     <section class="workspace"></section>
     <div class="inspector-resizer" role="separator" aria-label="Resize details panel" aria-orientation="vertical" tabindex="0" aria-valuemin="300" aria-valuemax="900" aria-valuenow="420" title="Drag to resize details panel"></div>
@@ -29,12 +35,13 @@ root.innerHTML = `
       <button data-action="upload">${icon("upload")} Upload</button>
       <button data-mobile="inspector">${icon("info")} Inspect</button>
     </nav>
-    <input id="yaml-file" hidden type="file" accept=".yaml,.yml,text/yaml">
+    <input id="yaml-file" hidden type="file" multiple accept=".yaml,.yml,text/yaml">
     <div class="drop-overlay" hidden>${icon("upload", 28)}<strong>Drop YAML to inspect</strong><span>Nothing is uploaded to a server</span></div>
   </main>`;
 
 const shell = root.querySelector(".app-shell");
 const topbar = root.querySelector(".topbar");
+const tabbar = root.querySelector(".tabbar");
 const sidebar = root.querySelector(".sidebar");
 const workspace = root.querySelector(".workspace");
 const inspector = root.querySelector(".inspector");
@@ -77,6 +84,7 @@ const overlay = root.querySelector(".drop-overlay");
 function render() {
   shell.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
   renderHeader();
+  renderTabs();
   renderSidebar();
   renderWorkspace();
   renderInspector();
@@ -93,7 +101,14 @@ function renderHeader() {
     <button type="button" class="status-chip ${valid ? "valid" : "invalid"}" data-select-type="validation" data-select-id="report" aria-label="Inspect structural validation results">
       ${icon(valid ? "shield" : "warning")}<span>${valid ? `Valid · ${state.report.warnings.length} warnings` : `${state.report.errors.length} errors`}</span>
     </button>
+    <button class="header-action ${state.compare ? "active" : ""}" data-action="compare" ${state.documents.length < 2 ? "disabled title=\"Open another YAML to compare\"" : ""}>Compare</button>
+    <button class="header-action" data-action="export">Export</button>
     <button class="upload-button" data-action="upload">${icon("upload")}<span>Open YAML</span></button>`;
+}
+
+function activeDoc() { return state.documents.find((doc) => doc.key === state.activeDocument); }
+function renderTabs() {
+  tabbar.innerHTML = state.documents.map((doc) => `<button role="tab" aria-selected="${doc.key === state.activeDocument}" class="graph-tab ${doc.key === state.activeDocument ? "active" : ""}" data-tab="${doc.key}" title="${escapeAttribute(doc.name)}">${escapeHtml(doc.name)}${compareGraphs(doc.originalGraph, doc.report.graph).changes.length || doc.comments.length ? `<span class="tab-dot" aria-label="Draft changes"></span>` : ""}</button>`).join("") + `<button class="tab-add" data-action="upload" aria-label="Add YAML files">＋</button>`;
 }
 
 function currentGoal(graph) {
@@ -135,6 +150,19 @@ function renderSidebar() {
 }
 
 function renderWorkspace() {
+  if (state.exportOpen) {
+    const doc = activeDoc();
+    const request = changeRequest(doc);
+    workspace.innerHTML = `<div class="review-screen"><div class="review-heading"><span class="eyebrow">Handoff review</span><h2>Export ${escapeHtml(doc.name)}</h2><p>Review changes and comments before downloading. The full graph preserves a clear starting point for GPT Work.</p></div><div class="review-summary">${request.changes.length} graph changes · ${request.comments.length} comments · ${state.report.errors.length} validation errors</div>${changeListHtml(compareGraphs(doc.originalGraph, doc.report.graph), "draft")}${request.comments.map((c) => `<div class="review-row"><strong>Comment · ${escapeHtml(c.type)} ${escapeHtml(c.id)} · ${escapeHtml(c.field)}</strong><p>${escapeHtml(c.text)}</p></div>`).join("")}<div class="export-actions"><button class="primary-action" data-action="download-yaml" ${state.report.errors.length ? "disabled" : ""}>Download complete YAML</button><button class="header-action" data-action="download-request">Download change request</button><button class="header-action" data-action="export">Back to graph</button></div></div>`;
+    return;
+  }
+  if (state.compare) {
+    const before = state.documents.find((doc) => doc.key === state.compare.before);
+    const after = state.documents.find((doc) => doc.key === state.compare.after);
+    const diff = before?.report.graph && after?.report.graph ? compareGraphs(before.report.graph, after.report.graph) : { changes: [], affected: [] };
+    workspace.innerHTML = `<div class="review-screen"><div class="review-heading"><span class="eyebrow">Version comparison</span><h2>Review what changed</h2><div class="compare-pickers"><label>Previous<select data-compare="before">${state.documents.map((doc) => `<option value="${doc.key}" ${doc.key === state.compare.before ? "selected" : ""}>${escapeHtml(doc.name)}</option>`).join("")}</select></label><label>Revised<select data-compare="after">${state.documents.map((doc) => `<option value="${doc.key}" ${doc.key === state.compare.after ? "selected" : ""}>${escapeHtml(doc.name)}</option>`).join("")}</select></label></div></div>${before?.report.errors.length || after?.report.errors.length ? `<p class="compare-warning">Fix structural errors in both files before comparing.</p>` : `<div class="review-summary">${diff.changes.length} changed items · ${diff.affected.length} dependent items to reconsider</div>${changeListHtml(diff, "compare")}`}</div>`;
+    return;
+  }
   if (state.report.errors.length) {
     workspace.innerHTML = `<div class="validation-panel"><span class="error-icon">${icon("warning", 26)}</span><span class="eyebrow">Validation stopped</span><h2>The graph needs attention</h2><p>Fix the referenced YAML fields, then open the file again. No data has left your browser.</p><div class="validation-list">${state.report.errors.map((item) => `<div><code>${escapeHtml(item.path)}</code><span>${escapeHtml(item.message)}</span></div>`).join("")}</div><button class="primary-action" data-action="upload">${icon("upload")}Choose another YAML</button></div>`;
     return;
@@ -158,6 +186,11 @@ function renderWorkspace() {
     else applyView();
     bindPanZoom(visual);
   });
+}
+
+function changeListHtml(diff, mode) {
+  if (!diff.changes.length && !diff.affected.length) return `<p class="empty-note">No semantic changes found.</p>`;
+  return `<div class="review-list">${diff.changes.map((change) => `<button class="review-row ${state.selection?.type === "difference" && state.selection.id === change.key ? "selected" : ""}" data-difference="${escapeAttribute(change.key)}"><span class="change-status ${change.status}">${change.status}</span><strong>${escapeHtml(change.kind)} · ${escapeHtml(change.id)}</strong><small>${escapeHtml(change.fields.join(", ") || "Entire item")}</small></button>`).join("")}${mode === "compare" ? diff.affected.map((key) => `<button class="review-row affected" data-difference="${escapeAttribute(key)}"><span class="change-status affected">affected</span><strong>${escapeHtml(key)}</strong><small>Dependency changed; check this result again</small></button>`).join("") : ""}</div>`;
 }
 
 function graphWorldHtml(visual, selectedPath) {
@@ -188,6 +221,10 @@ function renderInspector() {
   const graph = state.report.graph;
   const selection = state.selection;
   const close = `<button class="mobile-close" data-mobile="close" aria-label="Close details">${icon("close")}</button>`;
+  if (state.selection?.type === "difference" && state.compare) {
+    inspector.innerHTML = close + differenceInspector(state.selection.id);
+    return;
+  }
   if (selection?.type === "validation") {
     inspector.innerHTML = close + validationInspectorHtml();
     return;
@@ -198,11 +235,11 @@ function renderInspector() {
   }
   const api = { mathHtml, escapeHtml, detail };
   if (selection.type === "context") {
-    inspector.innerHTML = close + contextInspectorHtml(graph, selection.id, api);
+    inspector.innerHTML = close + (selection.id === "problem" ? problemEditor(graph) : contextInspectorHtml(graph, selection.id, api));
     return;
   }
   if (selection.type === "theorem") {
-    inspector.innerHTML = close + theoremInspectorHtml(graph, selection.id, api);
+    inspector.innerHTML = close + theoremEditor(graph, selection.id);
     return;
   }
   if (selection.type === "mistake") {
@@ -217,6 +254,38 @@ function renderInspector() {
     return;
   }
   inspector.innerHTML = close + (selection.type === "node" ? nodeInspector(graph, item) : edgeInspector(graph, item));
+}
+
+function editable(kind, id, field, label, value, multiline = true) {
+  const text = Array.isArray(value) ? value.join("\n") : String(value ?? "");
+  const attr = `data-edit-kind="${escapeAttribute(kind)}" data-edit-id="${escapeAttribute(id)}" data-edit-field="${escapeAttribute(field)}"`;
+  return `<label class="editable-field"><span>${escapeHtml(label)}</span>${multiline ? `<textarea rows="${Math.max(3, Math.min(7, text.split("\n").length + 1))}" ${attr}>${escapeHtml(text)}</textarea>` : `<input value="${escapeAttribute(text)}" ${attr}>`}<div class="edit-preview math-text">${mathHtml(text) || "<em>Empty</em>"}</div></label>`;
+}
+function commentBox(type, id, field = "general") {
+  const doc = activeDoc();
+  const comments = doc.comments.filter((item) => item.type === type && item.id === id);
+  return `<section class="comment-block"><h3>Review comments</h3>${comments.map((item) => `<div class="comment-item"><strong>${escapeHtml(item.field)}</strong><p>${escapeHtml(item.text)}</p><button data-remove-comment="${item.key}" aria-label="Remove comment">×</button></div>`).join("")}<label>Field<select data-comment-field>${["general", "claim", "method", "justification", "statement", "pattern", "defect", "required_hypotheses", "obligations"].map((option) => `<option ${option === field ? "selected" : ""}>${option}</option>`).join("")}</select></label><textarea data-comment-text placeholder="What should GPT Work check or change?"></textarea><button class="header-action" data-add-comment="${escapeAttribute(type)}:${escapeAttribute(id)}">Add comment</button></section>`;
+}
+function problemEditor(graph) {
+  return `<div class="inspector-content"><div class="inspector-kicker">Reference · problem</div>${editable("problem", "problem", "title", "Title", graph.problem?.title, false)}${editable("problem", "problem", "statement", "Statement", graph.problem?.statement)}${commentBox("problem", "problem", "statement")}</div>`;
+}
+function theoremEditor(graph, id) {
+  const item = graph.theorems.find((entry) => entry.id === id);
+  if (!item) return `<div class="inspector-empty">Theorem unavailable.</div>`;
+  return `<div class="inspector-content"><div class="inspector-kicker">Theorem</div>${copyId(id)}${editable("theorems", id, "statement", "Statement", item.statement)}${editable("theorems", id, "required_hypotheses", "Required hypotheses · one per line", item.required_hypotheses ?? [])}${editable("theorems", id, "source", "Source", item.source)}${commentBox("theorem", id, "statement")}</div>`;
+}
+function differenceInspector(key) {
+  const before = state.documents.find((doc) => doc.key === state.compare.before)?.report.graph;
+  const after = state.documents.find((doc) => doc.key === state.compare.after)?.report.graph;
+  const diff = compareGraphs(before, after);
+  const change = diff.changes.find((entry) => entry.key === key);
+  const [kind, id] = key.split(":");
+  const oldItem = change?.before ?? (kind === "problem" || kind === "canonical_notation" ? before?.[kind] : before?.[kind]?.find((item) => item.id === id));
+  const newItem = change?.after ?? (kind === "problem" || kind === "canonical_notation" ? after?.[kind] : after?.[kind]?.find((item) => item.id === id));
+  const fields = change?.fields ?? [...new Set([...Object.keys(oldItem ?? {}), ...Object.keys(newItem ?? {})])];
+  const reviewKey = `${state.compare.before}:${state.compare.after}:${key}`;
+  const reviewed = state.documents.find((doc) => doc.key === state.compare.after)?.reviewed.has(reviewKey);
+  return `<div class="inspector-content difference-panel"><div class="inspector-kicker">${change?.status ?? "Dependent result"} · ${escapeHtml(kind)}</div><h2>${escapeHtml(id)}</h2>${!change ? `<p class="compare-warning">An upstream dependency changed; reconsider this result.</p>` : ""}${fields.map((field) => `<section class="diff-field"><h3>${escapeHtml(field)}</h3><div class="diff-columns"><div><small>Previous</small><div class="math-text">${mathHtml(formatValue(oldItem?.[field] ?? "—"))}</div></div><div><small>Revised</small><div class="math-text">${mathHtml(formatValue(newItem?.[field] ?? "—"))}</div></div></div></section>`).join("")}<button class="primary-action" data-review="${escapeAttribute(reviewKey)}">${reviewed ? "Reviewed ✓" : "Mark reviewed"}</button></div>`;
 }
 
 function validationInspectorHtml() {
@@ -240,17 +309,18 @@ function mistakeInspector(graph, id) {
   const related = (mistake.related_edges ?? [])
     .map((edgeId) => graph.edges.find((edge) => edge.id === edgeId)).filter(Boolean);
   return `<div class="inspector-content"><div class="inspector-kicker">Common mistake</div>
-    <h2>${escapeHtml(mistake.category)}</h2>${copyId(mistake.id)}
-    ${detail("Pattern", mathHtml(mistake.pattern), "important")}
-    ${detail("Why it fails", mathHtml(mistake.defect), "important")}
+    ${copyId(mistake.id)}${editable("mistakes", id, "category", "Category", mistake.category, false)}
+    ${editable("mistakes", id, "pattern", "Mistaken pattern", mistake.pattern)}
+    ${editable("mistakes", id, "defect", "Why it fails", mistake.defect)}
     ${detail("Related inferences", linkList("", related, "edge"))}
+    ${commentBox("mistake", id, "pattern")}
   </div>`;
 }
 
 function nodeInspector(graph, node) {
   const incoming = graph.edges.filter((edge) => edge.to === node.id);
   const outgoing = graph.edges.filter((edge) => edge.from.includes(node.id));
-  return `<div class="inspector-content"><div class="inspector-kicker"><span class="type-dot ${node.type}"></span>${node.type} assertion</div><h2 class="math-text">${mathHtml(node.claim)}</h2>${copyId(node.id)}${node.scope ? detail("Scope / local assumptions", mathHtml(formatValue(node.scope)), "important") : ""}${detail("Proof dependencies", `${linkList("Incoming", incoming, "edge")}${linkList("Outgoing", outgoing, "edge")}`)}</div>`;
+  return `<div class="inspector-content"><div class="inspector-kicker"><span class="type-dot ${node.type}"></span>${node.type} assertion</div>${copyId(node.id)}${editable("nodes", node.id, "claim", "Claim", node.claim)}${node.scope ? detail("Scope / local assumptions", mathHtml(formatValue(node.scope)), "important") : ""}${detail("Proof dependencies", `${linkList("Incoming", incoming, "edge")}${linkList("Outgoing", outgoing, "edge")}`)}${commentBox("node", node.id, "claim")}</div>`;
 }
 
 function edgeInspector(graph, edge) {
@@ -258,7 +328,7 @@ function edgeInspector(graph, edge) {
   const target = graph.nodes.find((node) => node.id === edge.to);
   const theorems = (edge.uses ?? []).map((id) => graph.theorems.find((theorem) => theorem.id === id)).filter(Boolean);
   const mistakes = getRelatedMistakes(graph, edge.id);
-  return `<div class="inspector-content"><div class="inspector-kicker edge">${icon("branch", 14)}inference</div><h2>${escapeHtml(edge.method)}</h2>${copyId(edge.id)}${detail("From · all required", linkList("", sources, "node"), "important")}${detail("To", linkList("", target ? [target] : [], "node"), "important")}${detail("Justification", mathHtml(edge.justification), "important")}${edge.obligations ? detail("Check these obligations", mathHtml(formatValue(edge.obligations)), "important") : ""}${edge.scope ? detail("Scope / local assumptions", mathHtml(formatValue(edge.scope)), "important") : ""}${theorems.length ? detail("Theorems", theorems.map((theorem) => `<article class="theorem-card"><button type="button" class="reference-link" data-select-type="theorem" data-select-id="${escapeAttribute(theorem.id)}">${escapeHtml(theorem.id)} ↗</button><span class="math-text">${mathHtml(theorem.statement)}</span>${Array.isArray(theorem.required_hypotheses) && theorem.required_hypotheses.length ? `<div class="hypotheses-list"><strong>Required hypotheses</strong>${theorem.required_hypotheses.map((h) => `<span class="math-text">${mathHtml(h)}</span>`).join("")}</div>` : ""}${theorem.source ? `<small>${escapeHtml(theorem.source)}</small>` : ""}</article>`).join("")) : ""}${mistakes.length ? detail("Common mistakes", mistakes.map((mistake) => `<article class="mistake-card"><header class="mistake-header"><span class="mistake-category">${icon("warning", 16)}${escapeHtml(mistake.category)}</span><button type="button" class="reference-link mistake-id" data-select-type="mistake" data-select-id="${escapeAttribute(mistake.id)}">${escapeHtml(mistake.id)} ↗</button></header><section class="mistake-section"><strong>Mistaken pattern</strong><div class="math-text mistake-pattern">${mathHtml(mistake.pattern)}</div></section><section class="mistake-section defect"><strong>Why it fails</strong><div class="math-text">${mathHtml(mistake.defect)}</div></section><div class="reference-related"><strong>Related inferences</strong>${linkList("", (mistake.related_edges ?? []).map((id) => graph.edges.find((item) => item.id === id)).filter(Boolean), "edge")}</div></article>`).join("")) : ""}</div>`;
+  return `<div class="inspector-content"><div class="inspector-kicker edge">${icon("branch", 14)}inference</div>${copyId(edge.id)}${editable("edges", edge.id, "method", "Method", edge.method, false)}${detail("From · all required", linkList("", sources, "node"), "important")}${detail("To", linkList("", target ? [target] : [], "node"), "important")}${editable("edges", edge.id, "justification", "Justification", edge.justification)}${edge.obligations ? editable("edges", edge.id, "obligations", "Obligations · one per line", edge.obligations) : ""}${edge.scope ? detail("Scope / local assumptions", mathHtml(formatValue(edge.scope)), "important") : ""}${theorems.length ? detail("Theorems", theorems.map((theorem) => `<article class="theorem-card"><button type="button" class="reference-link" data-select-type="theorem" data-select-id="${escapeAttribute(theorem.id)}">${escapeHtml(theorem.id)} ↗</button><span class="math-text">${mathHtml(theorem.statement)}</span></article>`).join("")) : ""}${mistakes.length ? detail("Common mistakes", mistakes.map((mistake) => `<article class="mistake-card"><header class="mistake-header"><span class="mistake-category">${icon("warning", 16)}${escapeHtml(mistake.category)}</span><button type="button" class="reference-link mistake-id" data-select-type="mistake" data-select-id="${escapeAttribute(mistake.id)}">Edit ${escapeHtml(mistake.id)} ↗</button></header><section class="mistake-section"><strong>Mistaken pattern</strong><div class="math-text mistake-pattern">${mathHtml(mistake.pattern)}</div></section><section class="mistake-section defect"><strong>Why it fails</strong><div class="math-text">${mathHtml(mistake.defect)}</div></section></article>`).join("")) : ""}${commentBox("edge", edge.id, "justification")}</div>`;
 }
 
 function detail(title, content, priority = "") { return `<section class="detail-block ${priority}"><h3>${escapeHtml(title)}</h3>${content}</section>`; }
@@ -268,24 +338,61 @@ function linkList(label, items, type) {
 }
 
 function loadSource(source, name) {
-  state.report = parseGraphYaml(source);
-  state.fileName = name;
+  const report = parseGraphYaml(source);
+  const key = String(Date.now()) + "-" + String(Math.random()).slice(2);
+  const doc = { key, name, source, originalGraph: report.graph ? structuredClone(report.graph) : null, report, comments: [], reviewed: new Set(), selection: null, view: { x: 0, y: 42, scale: 1 }, goalId: null };
+  state.documents.push(doc);
+  activateDocument(key);
+}
+
+function activateDocument(key) {
+  const current = activeDoc();
+  if (current) { current.selection = state.selection; current.view = { ...state.view }; current.goalId = state.goalId; }
+  const doc = state.documents.find((entry) => entry.key === key);
+  if (!doc) return;
+  state.activeDocument = key;
+  state.report = doc.report;
+  state.fileName = doc.name;
   state.activePath = null;
-  state.goalId = state.report.graph?.nodes?.find((node) => node.type === "goal")?.id ?? null;
-  state.view = { x: 0, y: 42, scale: 1 };
-  state.selection = state.report.errors.length ? { type: "validation", id: "report" } : { type: "context", id: "problem" };
+  state.goalId = doc.goalId ?? doc.report.graph?.nodes?.find((node) => node.type === "goal")?.id ?? null;
+  state.view = { ...doc.view };
+  state.selection = doc.selection ?? (doc.report.errors.length ? { type: "validation", id: "report" } : { type: "context", id: "problem" });
+  state.exportOpen = false;
   render();
 }
 
-async function loadFile(file) {
-  if (!file) return;
-  if (!/\.ya?ml$/i.test(file.name)) {
-    state.report = { graph: null, warnings: [], errors: [{ path: "file", message: "Choose a .yaml or .yml file." }] };
-    state.fileName = file.name;
-    render();
-    return;
-  }
-  loadSource(await file.text(), file.name);
+async function loadFiles(files) {
+  for (const file of files) if (/\.ya?ml$/i.test(file.name)) loadSource(await file.text(), file.name);
+  fileInput.value = "";
+}
+
+function updateField(input) {
+  const doc = activeDoc(), graph = doc.report.graph;
+  const { editKind: kind, editId: id, editField: field } = input.dataset;
+  const target = kind === "problem" ? graph.problem : graph[kind]?.find((item) => item.id === id);
+  if (!target) return;
+  const old = target[field];
+  const value = Array.isArray(old) || field === "required_hypotheses"
+    ? input.value.split("\n").map((line) => line.trim()).filter(Boolean) : input.value;
+  if (JSON.stringify(old) === JSON.stringify(value)) return;
+  target[field] = value;
+  doc.report = { graph, ...validateGraph(graph) };
+  state.report = doc.report;
+  doc.reviewed.clear();
+  const scrollTop = inspector.scrollTop;
+  render();
+  inspector.scrollTop = scrollTop;
+}
+
+function downloadText(name, text) {
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(new Blob([text], { type: "text/yaml;charset=utf-8" }));
+  link.href = url;
+  link.download = name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function bindPanZoom(visual) {
@@ -346,6 +453,41 @@ function applyView() {
 root.addEventListener("click", async (event) => {
   const action = event.target.closest("[data-action]")?.dataset.action;
   if (action === "upload") fileInput.click();
+  if (action === "compare") {
+    state.exportOpen = false;
+    state.compare = state.compare ? null : { before: state.documents[0].key, after: state.activeDocument };
+    state.selection = { type: "validation", id: "report" };
+    render();
+  }
+  if (action === "export") { state.compare = null; state.exportOpen = !state.exportOpen; render(); }
+  if (action === "download-yaml" && !state.report.errors.length) {
+    try { downloadText(activeDoc().name.replace(/\.ya?ml$/i, "") + ".updated.yaml", serializeYaml(state.report.graph)); }
+    catch (error) { window.alert(error.message); }
+  }
+  if (action === "download-request") downloadText("change-request.yaml", serializeYaml(changeRequest(activeDoc())));
+  const tab = event.target.closest("[data-tab]");
+  if (tab) { state.compare = null; activateDocument(tab.dataset.tab); return; }
+  const difference = event.target.closest("[data-difference]");
+  if (difference) { state.selection = { type: "difference", id: difference.dataset.difference }; renderInspector(); workspace.querySelectorAll(".review-row").forEach((row) => row.classList.toggle("selected", row === difference)); return; }
+  const review = event.target.closest("[data-review]");
+  if (review) {
+    const revised = state.documents.find((doc) => doc.key === state.compare.after);
+    revised.reviewed.has(review.dataset.review) ? revised.reviewed.delete(review.dataset.review) : revised.reviewed.add(review.dataset.review);
+    renderInspector();
+    return;
+  }
+  const addComment = event.target.closest("[data-add-comment]");
+  if (addComment) {
+    const text = inspector.querySelector("[data-comment-text]")?.value.trim();
+    if (text) {
+      const [type, ...id] = addComment.dataset.addComment.split(":");
+      activeDoc().comments.push({ key: String(Date.now()) + Math.random(), type, id: id.join(":"), field: inspector.querySelector("[data-comment-field]").value, text });
+      renderTabs(); renderInspector();
+    }
+    return;
+  }
+  const removeComment = event.target.closest("[data-remove-comment]");
+  if (removeComment) { activeDoc().comments = activeDoc().comments.filter((item) => item.key !== removeComment.dataset.removeComment); renderTabs(); renderInspector(); return; }
   if (action === "toggle-sidebar") {
     state.sidebarCollapsed = !state.sidebarCollapsed;
     localStorage.setItem("proof-atlas-sidebar-collapsed", String(state.sidebarCollapsed));
@@ -383,6 +525,10 @@ root.addEventListener("click", async (event) => {
 });
 
 root.addEventListener("input", (event) => {
+  if (event.target.matches("[data-edit-field]")) {
+    const preview = event.target.closest(".editable-field")?.querySelector(".edit-preview");
+    if (preview) preview.innerHTML = mathHtml(event.target.value);
+  }
   if (event.target.matches(".search-box input")) {
     state.query = event.target.value;
     state.activePath = null;
@@ -394,6 +540,13 @@ root.addEventListener("input", (event) => {
 });
 
 root.addEventListener("change", (event) => {
+  if (event.target.matches("[data-edit-field]")) { updateField(event.target); return; }
+  if (event.target.matches("[data-compare]")) {
+    state.compare[event.target.dataset.compare] = event.target.value;
+    state.selection = { type: "validation", id: "report" };
+    renderWorkspace(); renderInspector();
+    return;
+  }
   if (event.target.matches("[data-goal]")) {
     state.goalId = event.target.value;
     state.activePath = null;
@@ -408,10 +561,10 @@ root.addEventListener("change", (event) => {
   }
 });
 
-fileInput.addEventListener("change", () => loadFile(fileInput.files[0]));
+fileInput.addEventListener("change", () => loadFiles([...fileInput.files]));
 shell.addEventListener("dragover", (event) => { event.preventDefault(); overlay.hidden = false; });
 shell.addEventListener("dragleave", (event) => { if (!shell.contains(event.relatedTarget)) overlay.hidden = true; });
-shell.addEventListener("drop", (event) => { event.preventDefault(); overlay.hidden = true; loadFile(event.dataTransfer.files[0]); });
+shell.addEventListener("drop", (event) => { event.preventDefault(); overlay.hidden = true; loadFiles([...event.dataTransfer.files]); });
 window.addEventListener("resize", () => { if (window.innerWidth > 760) setInspectorWidth(inspector.getBoundingClientRect().width); if (window.innerWidth > 760 && state.mobilePanel) { state.mobilePanel = null; render(); } });
 
 function mathHtml(value) { return renderMath(value, window.katex); }
@@ -439,4 +592,4 @@ function icon(name, size = 16) {
   return `<svg aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths[name] ?? ""}</svg>`;
 }
 
-render();
+loadSource(sampleGraphYaml, "example-graph.yaml");
