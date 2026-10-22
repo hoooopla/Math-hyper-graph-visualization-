@@ -188,7 +188,6 @@ function renderWorkspace() {
     </div>
     <div class="graph-viewport">
     <div class="canvas-tools"><button data-action="zoom-in" aria-label="Zoom in">${icon("plus")}</button><button data-action="zoom-out" aria-label="Zoom out">${icon("minus")}</button><button data-action="fit" aria-label="Fit graph">${icon("fit")}</button><button class="id-toggle ${state.showIds ? "active" : ""}" data-action="toggle-ids" aria-label="${state.showIds ? "Hide" : "Show"} graph IDs" aria-pressed="${state.showIds}">IDs</button></div>
-    ${state.selection?.type === "edge" ? `<div class="flow-legend"><span class="flow-in">Sources → inference</span><span class="flow-out">Inference → result</span></div>` : ""}
     ${visual.nodes.length ? graphWorldHtml(visual, selectedPath) : `<div class="empty-canvas">${icon("search", 24)}<span>No matching graph elements</span></div>`}
   </div>`;
   requestAnimationFrame(() => {
@@ -206,6 +205,9 @@ function changeListHtml(diff, mode) {
 function graphWorldHtml(visual, selectedPath) {
   const activeNode = (id) => !selectedPath || selectedPath.nodeIds.has(id);
   const activeEdge = (id) => !selectedPath || selectedPath.edgeIds.has(id);
+  const selectedNodeId = state.selection?.type === "node" ? state.selection.id : null;
+  const incoming = new Set(state.report.graph.edges.filter((edge) => edge.to === selectedNodeId).map((edge) => edge.id));
+  const outgoing = new Set(state.report.graph.edges.filter((edge) => edge.from.includes(selectedNodeId)).map((edge) => edge.id));
   const links = visual.links.map((link) => {
     if (!link.from || !link.to) return "";
     const x1 = link.from.x;
@@ -213,8 +215,10 @@ function graphWorldHtml(visual, selectedPath) {
     const x2 = link.to.x;
     const y2 = link.to.y - (link.to.visualType === "method" ? 27 : 45);
     const mid = (y1 + y2) / 2;
-    const highlighted = state.selection?.type === "edge" && state.selection.id === link.edgeId;
-    const role = highlighted ? (link.from.visualType === "method" ? "selected-outgoing" : "selected-incoming") : "";
+    const selectedEdge = state.selection?.type === "edge" && state.selection.id === link.edgeId;
+    const role = selectedEdge ? (link.from.visualType === "method" ? "selected-outgoing" : "selected-incoming")
+      : incoming.has(link.edgeId) ? "selected-incoming"
+      : outgoing.has(link.edgeId) ? "selected-outgoing" : "";
     return `<path class="${activeEdge(link.edgeId) ? "" : "dimmed"} ${role}" d="M ${x1} ${y1} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${y2}" marker-end="url(#${role === "selected-incoming" ? "arrow-in" : role === "selected-outgoing" ? "arrow-out" : "arrow"})"></path>`;
   }).join("");
   const nodes = visual.nodes.map((node) => {
@@ -527,7 +531,7 @@ root.addEventListener("click", async (event) => {
   const selection = event.target.closest("[data-select-id]");
   if (selection) {
     state.selection = { type: selection.dataset.selectType, id: selection.dataset.selectId };
-    if (state.selection.type === "edge") state.activePath = null;
+    if (state.selection.type === "edge" || state.selection.type === "node") state.activePath = null;
     if (state.selection.type === "node") {
       const selectedNode = state.report.graph?.nodes?.find((node) => node.id === state.selection.id);
       if (selectedNode?.type === "goal" && selectedNode.id !== state.goalId) {

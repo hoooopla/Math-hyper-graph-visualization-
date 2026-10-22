@@ -5,8 +5,8 @@ import test from "node:test";
 test("the page includes the editor and comparison assets in its static build", async () => {
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const build = await readFile(new URL("../scripts/build.mjs", import.meta.url), "utf8");
-  assert.match(html, /styles\.css\?v=verification-flow-v2/);
-  assert.match(html, /app\.js\?v=verification-flow-v2/);
+  assert.match(html, /styles\.css\?v=incident-flow-v1/);
+  assert.match(html, /app\.js\?v=incident-flow-v1/);
   assert.match(build, /review-core\.js/);
   assert.match(build, /verification-core\.js/);
 });
@@ -24,4 +24,7 @@ test("details remain editable in the inspector and file tabs accept multiple upl
   assert.match(app, /selected-outgoing/);
   assert.match(app, /data-action="toggle-ids"/);
   assert.match(app, /verified-badge/);
+  assert.match(app, /incoming\.has\(link\.edgeId\)/);
+  assert.match(app, /outgoing\.has\(link\.edgeId\)/);
+  assert.doesNotMatch(app, /flow-legend/);
 });

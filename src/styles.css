@@ -440,10 +440,6 @@ button { color: inherit; }
 .links path.selected-outgoing { stroke: var(--accent); stroke-width: 3; opacity: 1; }
 .links #arrow-in path { fill: var(--cyan); }
 .links #arrow-out path { fill: var(--accent); }
-.flow-legend { position: absolute; z-index: 13; top: 11px; right: 12px; display: flex; flex-wrap: wrap; gap: 5px 12px; padding: 7px 9px; border: 1px solid #354151; border-radius: 5px; background: #0c111be8; font: 10px ui-monospace, monospace; pointer-events: none; }
-.flow-in { color: var(--cyan); }
-.flow-out { color: var(--accent); }
-@media (max-width: 760px) { .flow-legend { top: 43px; left: 8px; right: auto; max-width: calc(100% - 16px); } }
 
 .canvas-tools .id-toggle { width: 44px; font: 700 10px ui-monospace, monospace; }
 .canvas-tools .id-toggle.active { color: var(--accent); background: #1d2a18; }
