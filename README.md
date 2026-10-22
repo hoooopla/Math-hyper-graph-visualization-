@@ -16,9 +16,14 @@ compare revisions, and prepare review comments.
 1. Open [Proof Atlas](https://hoooopla.github.io/proof-atlas/) and choose
    **Start Workflow** to copy the setup prompt into GPT Work.
 2. Connect GPT Work to **your own** GitHub repository and attach an
-   assignment PDF. Work first sketches candidate approaches, then asks
-   for **one assignment-specific** Cite / Derive / Exclude decision table
-   **before constructing full solution graphs**. Earlier assignments
+   assignment PDF. Work independently sketches candidate approaches.
+   **Optionally**, if you explicitly provide a batch of student answers
+   for pre-audit discovery, Work can preview them to identify additional
+   candidate strategies, theorem uses and mistake patterns—**without
+   grading or judging any student's answer**. It records what was and
+   was not examined.
+   Work then asks for **one assignment-specific** Cite / Derive / Exclude
+   decision table **before constructing full solution graphs**. Earlier assignments
    are useful context, not permission.
 3. After you answer, Work records the approved choices in
    `assignments/<assignment-id>/policy.yaml`, develops and checks the
@@ -34,7 +39,8 @@ AI runs in your GPT Work conversation, not inside the public website.
 ## Workflow
 
 ```text
-Assignment PDF → preliminary strategy / theorem inventory
+Assignment PDF → independent preliminary strategy inventory
+               → [optional, opt-in batch student-answer discovery]
                → instructor Cite / Derive / Exclude checkpoint
                → assignments/HWxx/policy.yaml
                → full mathematical proof generation + adversarial checks
@@ -49,9 +55,14 @@ Assignment PDF → preliminary strategy / theorem inventory
   mathematical statements with reviewable differences.
 - Compare two graph versions and export updated YAML or structured
   change requests for GPT Work.
-- Keep each instructor's homework, assignment-specific theorem policy
-  and confidential student materials in their **own repository**, not
-  this public software project.
+- Optionally use instructor-authorized student answers for **pre-audit
+  discovery** of candidate proof routes and recurring mistake patterns,
+  without individual correctness judgments or grades. Record exact
+  screening coverage and unreadable/unreviewed cases.
+- Keep each instructor's homework, assignment-specific policy and
+  confidential student materials in their **own private workspace**,
+  never the public software project. Source PDFs and identifying
+  alias mappings must not be committed.
 
 ## Source organization
 
@@ -98,7 +109,8 @@ mathematical correctness.
 [Contributing](docs/contributing.md) ·
 [Generation workflow](workflow/generate-solution-graph.md) ·
 [Verification workflow](workflow/verify-solution-graph.md) ·
-[Assignment theorem policy](workflow/assignment-policy.md)
+[Assignment theorem policy](workflow/assignment-policy.md) ·
+[Optional pre-audit discovery](workflow/preaudit-discovery.md)
 
 Do not publish identifiable student submissions, grades or confidential
 course PDFs in this public repository. Student-answer auditing is a
