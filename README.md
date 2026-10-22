@@ -4,7 +4,23 @@ An independent **math-proof hypergraph** workflow for instructors using their **
 
 **Published starter source:** [Public GitHub branch](https://github.com/hoooopla/Math-hyper-graph-visualization-/tree/math-homework-audit-starter). This branch is intentionally a **standalone starter snapshot** and is **not the web viewer's main branch**.
 
-## Quick start
+## Start with GPT Work
+
+If your GPT Work can access GitHub and create or update repositories, you can start by pasting this **one-time setup prompt**. Work may require confirmation or GitHub authorization; if repo creation is unavailable, use the manual steps below.
+
+> Set up my own **Math Homework Audit** repository using ONLY the public starter files from
+> https://github.com/hoooopla/Math-hyper-graph-visualization-/tree/math-homework-audit-starter
+> (this special branch, **not** that repository's main website branch). Create a new repository
+> in **my own GitHub account**, preferably private, named `math-homework-audit-my-course`,
+> or ask me for the URL of a repository I already own. Copy the branch's **14 starter files**
+> into the new repository's root, preserving folders and **without copying source history**.
+> Verify `AGENTS.md`, both prompts, the canonical schema, Python validator, synthetic example,
+> and GitHub Actions; run or check `python scripts/validate_graphs.py`.
+> Do not read or use the publisher's private repositories, do not copy personal information,
+> and do not start generating homework graphs yet. Report my repository URL and any setup
+> limitations. Then ask me to attach a problem PDF.
+
+## Quick start (manual setup)
 
 1. **Create your own GitHub repository** (public or preferably private for course materials). Copy all files from this starter branch into its root, preserving folders. See [full instructions](docs/GETTING_STARTED.md) for the downloadable ZIP and Git instructions.
 2. Open **GPT Work** in ChatGPT. Connect GitHub access to **your own repository** and select it for the task. If your Work mode has no GitHub access, connect/authorize GitHub first; do not paste secrets into prompts.
