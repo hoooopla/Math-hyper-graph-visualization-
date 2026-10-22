@@ -1,4 +1,11 @@
 node_modules/
 dist/
+dist-workspace/
+instructor-workspace/
+*.pdf
+submissions/
+student-submissions/
+private/
+uploads/
 .DS_Store
 npm-debug.log*
