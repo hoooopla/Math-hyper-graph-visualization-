@@ -450,3 +450,32 @@ button { color: inherit; }
 .method-id { grid-column: 2; color: #98a5b4; font: 9px/1.3 ui-monospace, monospace; overflow-wrap: anywhere; }
 .method-node.is-verified { position: absolute; padding-right: 33px; }
 .method-node.is-verified .verified-badge { position: absolute; top: 50%; right: 7px; transform: translateY(-50%); width: 18px; height: 18px; }
+
+/* Public GPT Work onboarding dialog, separate from graph/data state. */
+.start-workflow-cta { display: inline-flex; align-items: center; gap: 6px; border-color: #728b47; color: #d9ffa1; }
+.start-workflow-cta:hover { border-color: var(--accent); color: var(--accent); }
+.workflow-overlay { position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; padding: 18px; }
+.workflow-overlay[hidden] { display: none; }
+.workflow-scrim { position: absolute; inset: 0; background: #020309df; backdrop-filter: blur(5px); }
+.workflow-dialog { position: relative; width: min(660px, 100%); max-height: min(92vh, 820px); overflow: auto; padding: 28px; border: 1px solid #3b4b3c; border-radius: 12px; background: #10161c; box-shadow: 0 24px 80px #000a; color: #e8eff0; }
+.workflow-dialog h2 { margin: 13px 28px 9px 0; font-size: 23px; font-weight: 650; line-height: 1.25; }
+.workflow-dialog p, .workflow-dialog li { color: #aeb8c6; font-size: 12px; line-height: 1.65; }
+.workflow-dialog ol { margin: 17px 0 20px; padding-left: 20px; }
+.workflow-dialog li + li { margin-top: 6px; }
+.workflow-dialog li strong { color: #d9e7c5; }
+.workflow-dialog label { display: block; margin-bottom: 8px; font-size: 11px; font-weight: 650; color: var(--accent); }
+.workflow-dialog textarea { width: 100%; min-height: 164px; max-height: 34vh; padding: 12px; resize: vertical; border: 1px solid #374554; border-radius: 6px; background: #080e14; color: #d4dce2; font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.workflow-dialog textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.workflow-message { min-height: 18px; margin: 8px 0 0; }
+.workflow-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 17px; }
+.workflow-actions a { text-decoration: none; }
+.workflow-actions .upload-button:disabled { opacity: .5; cursor: not-allowed; }
+.workflow-close { position: absolute; top: 15px; right: 14px; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #36414b; border-radius: 6px; background: #171e24; color: #b6c0ca; cursor: pointer; }
+.workflow-close:hover { color: white; border-color: var(--accent); }
+@media (max-width: 1060px) { .topbar .file-chip { display: none; } }
+@media (max-width: 760px) {
+  .topbar .status-chip { display: none; }
+  .start-workflow-cta { padding: 7px 8px; }
+  .start-workflow-cta span { font-size: 10px; }
+  .workflow-dialog { padding: 23px 18px; }
+}
