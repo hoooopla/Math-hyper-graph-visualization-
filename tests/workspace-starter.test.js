@@ -49,7 +49,15 @@ test("workspace generator creates only intended private-repository files", async
     const publicValidator = await readFile(new URL("../core/validation/validate_graphs.py", import.meta.url));
     const privateValidator = await readFile(join(target, "scripts/validate_graphs.py"));
     assert.deepEqual(publicValidator, privateValidator, "private validator must be the same maintained file");
-    assert.match(await readFile(join(target, ".github/workflows/validate.yml"), "utf8"), /validate_graphs\.py/);
+    const publicPolicySchema = await readFile(new URL("../core/schema/assignment-policy.schema.json", import.meta.url));
+    const privatePolicySchema = await readFile(join(target, "schema/assignment-policy.schema.json"));
+    assert.deepEqual(publicPolicySchema, privatePolicySchema, "assignment policy schema must be pinned identically");
+    const publicPolicyValidator = await readFile(new URL("../core/validation/validate_policies.py", import.meta.url));
+    const privatePolicyValidator = await readFile(join(target, "scripts/validate_policies.py"));
+    assert.deepEqual(publicPolicyValidator, privatePolicyValidator, "assignment permission validator must be pinned identically");
+    const privateCI = await readFile(join(target, ".github/workflows/validate.yml"), "utf8");
+    assert.match(privateCI, /validate_graphs\.py/);
+    assert.match(privateCI, /validate_policies\.py/);
     assert.match(await readFile(join(target, "examples/commuting-square-roots/graph.yaml"), "utf8"), /EXAMPLE_COMMUTING_SQUARE_ROOTS/);
     await assert.rejects(createWorkspace(target), /already exists/);
   } finally {
@@ -59,11 +67,13 @@ test("workspace generator creates only intended private-repository files", async
 
 test("workspace manifest has explicit unique paths and never copies frontend", async () => {
   const data = JSON.parse(await readFile(new URL("../templates/instructor-workspace/manifest.json", import.meta.url), "utf8"));
-  assert.equal(data.version, 4);
+  assert.equal(data.version, 5);
   assert.ok(data.files.length > 0);
   const outputs = data.files.map((entry) => entry.destination);
   assert.equal(new Set(outputs).size, outputs.length);
   assert.ok(data.files.some((entry) => entry.source === "core/schema/solution-graph.schema.json" && entry.destination === "schema/solution-graph.schema.json"));
+  assert.ok(data.files.some((entry) => entry.source === "core/schema/assignment-policy.schema.json" && entry.destination === "schema/assignment-policy.schema.json"));
+  assert.ok(data.files.some((entry) => entry.source === "core/validation/validate_policies.py" && entry.destination === "scripts/validate_policies.py"));
   assert.ok(data.files.some((entry) => entry.source === "templates/instructor-workspace/AGENTS.md" && entry.destination === "AGENTS.md"));
   assert.ok(data.files.some((entry) => entry.source === "workflow/assignment-policy.md" && entry.destination === "prompts/assignment-policy.md"));
   assert.ok(data.files.some((entry) => entry.source === "templates/instructor-workspace/assignment-policy.template.yaml" && entry.destination === "templates/assignment-policy.template.yaml"));
