@@ -15,12 +15,18 @@ compare revisions, and prepare review comments.
 
 1. Open [Proof Atlas](https://hoooopla.github.io/proof-atlas/) and choose
    **Start Workflow** to copy the setup prompt into GPT Work.
-2. Connect GPT Work to **your own** GitHub repository and attach a problem
-   PDF. Before committing graphs, GPT Work asks which proposed theorems
-   may be **Cited**, must be **Derived**, or are **Excluded** in your course.
-3. After you answer, review the proposed `graph.yaml` and
-   `verification.md` for each problem in a pull request. Open the
-   graph in the website and approve the mathematics yourself.
+2. Connect GPT Work to **your own** GitHub repository and attach an
+   assignment PDF. Work first sketches candidate approaches, then asks
+   for **one assignment-specific** Cite / Derive / Exclude decision table
+   **before constructing full solution graphs**. Earlier assignments
+   are useful context, not permission.
+3. After you answer, Work records the approved choices in
+   `assignments/<assignment-id>/policy.yaml`, develops and checks the
+   complete graphs, and asks only about *new* dependencies discovered
+   during proof construction.
+4. Review the proposed policy, `graph.yaml` and `verification.md`
+   files in a pull request. Inspect the graphs in the website and
+   approve the mathematics yourself.
 
 The website is usable without GPT Work for **viewing and editing YAML**.
 AI runs in your GPT Work conversation, not inside the public website.
@@ -28,9 +34,11 @@ AI runs in your GPT Work conversation, not inside the public website.
 ## Workflow
 
 ```text
-Problem PDF → AI proof analysis → instructor theorem decisions
-            → graph.yaml + verification.md → interactive human review
-            → revision / pull request
+Assignment PDF → preliminary strategy / theorem inventory
+               → instructor Cite / Derive / Exclude checkpoint
+               → assignments/HWxx/policy.yaml
+               → full mathematical proof generation + adversarial checks
+               → graph.yaml + verification.md → human review / PR
 ```
 
 ## Features
@@ -41,8 +49,9 @@ Problem PDF → AI proof analysis → instructor theorem decisions
   mathematical statements with reviewable differences.
 - Compare two graph versions and export updated YAML or structured
   change requests for GPT Work.
-- Keep each instructor's homework and confidential student materials
-  in their **own repository**, not this public software project.
+- Keep each instructor's homework, assignment-specific theorem policy
+  and confidential student materials in their **own repository**, not
+  this public software project.
 
 ## Source organization
 
@@ -88,7 +97,8 @@ mathematical correctness.
 [Architecture](docs/architecture.md) ·
 [Contributing](docs/contributing.md) ·
 [Generation workflow](workflow/generate-solution-graph.md) ·
-[Verification workflow](workflow/verify-solution-graph.md)
+[Verification workflow](workflow/verify-solution-graph.md) ·
+[Assignment theorem policy](workflow/assignment-policy.md)
 
 Do not publish identifiable student submissions, grades or confidential
 course PDFs in this public repository. Student-answer auditing is a

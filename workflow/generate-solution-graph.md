@@ -1,131 +1,144 @@
 # GPT Work — Generate and verify solution hypergraphs
 
-Use this prompt when a problem PDF is supplied, optionally with instructor
-solutions or an existing canonical graph. This is **Stage 1 only**: no student
-submission auditing.
+Use this prompt with a problem PDF, optionally instructor solutions or an
+existing canonical graph. This is **solution-graph generation only**, not
+student submission auditing. Operate in the instructor's own repository,
+never in the public Proof Atlas software repository.
 
-## Task for GPT Work
+## First: read the pinned contract
 
-You are a mathematical proof analyst working on
-**the instructor's own copy of this workflow repository**, selected in GPT Work.
+Read these files from the **current instructor repository**, not memory:
+`AGENTS.md`, `SCHEMA.md`, `schema/solution-graph.schema.json`,
+`scripts/validate_graphs.py`, `prompts/verify-solution-graph.md`,
+`prompts/assignment-policy.md`, and
+`templates/assignment-policy.template.yaml`.
+Inspect any existing assignment policy, problem graphs and verification
+reports before proposing changes. If access fails, say so explicitly.
 
-**Before generating or modifying files:**
+## Phase A — inexpensive preliminary analysis (before full proof generation)
 
-1. Read the repository's current `AGENTS.md`, `SCHEMA.md`,
-   `schema/solution-graph.schema.json`, `scripts/validate_graphs.py`,
-   and **`prompts/verify-solution-graph.md`** directly from GitHub.
-   They are the authoritative and versioned format contract.
-   Do not rely on an older memorized schema.
-2. Read the supplied problem PDF and any reference solutions; extract the
-   exact hypotheses and conclusions, noting ambiguous notation and the source
-   page(s). If existing `graph.yaml` or `verification.md` files are
-   present for a problem, inspect them before proposing changes.
+1. Extract the exact mathematical statements, hypotheses, conclusions,
+   notation, problem IDs, PDF locations and ambiguities. Reference
+   solutions require verification, not unquestioning acceptance.
+2. For **each problem**, identify the main natural candidate approaches.
+   Sketch their essential ideas and likely proof-dependent lemmas, rather
+   than writing complete proofs or creating graph YAML.
+3. Compile one **deduplicated assignment-wide candidate inventory** of
+   substantial theorems, lemmas and nonroutine steps whose required degree
+   of justification depends on instructor policy. State precise/provisional
+   mathematical claims, intended uses, candidate IDs, affected problems,
+   required hypotheses, known applicability versus unknowns, and reliable
+   sources when known. Investigate enough to avoid asking about an
+   incorrectly stated or inapplicable theorem, but do not do a full
+   adversarial graph verification at this phase.
+4. Read earlier assignments only for **historical context** and optional
+   recommendations about what students may have learned. **Never import
+   their permissions into this assignment.** Reuse only explicit decisions
+   already confirmed for this *same assignment*, matching exact scope and
+   theorem statement.
+5. Present a **single consolidated checkpoint table** with suggested
+   treatment `Cite / Derive / Exclude` and an empty instructor-decision
+   column for all new/uncovered items. Ask about nonroutine implicit
+   justifications. **Pause for an explicit response.** No complete proof
+   graph or graph-containing commit/PR before the checkpoint is resolved.
 
-**Mathematical work:**
+The instructor chooses:
+- **Cite** — invoke directly *if* mathematical assumptions apply.
+- **Derive** — include an adequate mathematical derivation, not a bare cite.
+- **Exclude** — do not use as an unproved invocation; seek another route.
 
-3. Independently derive the main natural proof strategies. Verify instructor
-   solutions rather than assuming they are correct. Include materially
-   different methods without redundant variants.
-4. Construct a directed AND/OR hypergraph:
-   - Nodes are mathematical assertions, not methods; distinguish `premise`,
-     `milestone`, and `goal`. Use stable IDs and `assertion`, not `claim`.
-   - Each edge has `id`, **nonempty** `from`, `to`, `method`, and
-     `justification`; all `from` nodes are required together. Incoming
-     alternative edges to one target represent OR.
-   - Add `uses` with theorem IDs and `obligations` or `scope` when
-     needed. Record definitional assumptions explicitly instead of inventing
-     an empty-premise edge. Do not silently discharge local assumptions.
-   - Theorems must have precise statements and hypotheses; never fabricate
-     sources. Mistakes must contain `id`, `related_edges`, `pattern`,
-     `defect`, and `category`, and must not be represented as valid edges.
-5. Perform an *independent adversarial pass* on every assertion and inference:
-   check domains, quantifiers, scope, theorem hypotheses, missing cases,
-   reachability, circularity, and counterexamples. Differentiate genuine
-   errors, incomplete justifications, and acceptable implicit steps. Flag
-   unresolved issues explicitly. Never equate structural validation with
-   proof correctness. Follow `prompts/verify-solution-graph.md`: thoroughly
-   verify the mathematics, but do not duplicate successful proofs in the report.
+A missing, partial or ambiguous response **is not approval**. Exclude
+unresolved routes from the proposed approved graph or stop if essential.
+For an already existing assignment policy, show which exact approvals
+cover candidate uses and request decisions only for uncovered uses.
 
-**Mandatory instructor checkpoint — before committing any `graph.yaml`:**
+## Phase B — construct and rigorously verify after the checkpoint
 
-- Inventory the named/substantial theorems and proof-dependent lemmas in all
-  candidate solutions, together with any steps whose required degree of
-  explanation is course-dependent. Include exact/provisional theorem and edge
-  IDs, relevant problems, mathematical applicability and sources where known.
-- Present **one consolidated table** for the assignment and request instructor
-  decisions: **Cite** (allowed directly), **Derive** (prove/justify inside
-  the solution), or **Exclude** (not an allowed unproved invocation). Ask if
-  any otherwise implicit steps require explicit arguments.
-- The instructor's course permission is distinct from a theorem's mathematical
-  hypotheses. `edges[].uses` and `theorems[].required_hypotheses` record
-  mathematical dependencies; they do **not** confer course permission.
-- **Pause for an explicit response. Do not commit or open a graph-containing
-  PR while the checkpoint is pending.** Do not assume consent from silence.
-  An existing instructor policy can be reused only for its stated scope;
-  summarize applicable decisions and ask about new/ambiguous items.
-- Once answered, revise the proposed solution paths to comply, re-verify all
-  affected mathematics, and re-open the checkpoint if a new theorem requiring
-  judgment is introduced. The detailed procedure and reporting convention are
-  specified in `prompts/verify-solution-graph.md`.
+6. Record **only explicit approvals** and their actual evidence and scope in
+   `assignments/<assignment-id>/policy.yaml`, following
+   `prompts/assignment-policy.md` and the template. Use one policy per
+   assignment, with a precise statement and affected problem IDs for every
+   item; record explicitly approved problem overrides where necessary.
+   Do not invent approval quotes, dates, or sources. The template itself is
+   not an approval.
+7. Independently derive and adversarially check the main natural solution
+   strategies compliant with the policy. Capture materially different
+   methods, not redundant variants. Check references and instructor
+   solutions independently.
+8. Construct a directed **AND/OR solution hypergraph** for each problem:
+   - Nodes are precise assertions: `premise`, `milestone`, `goal`;
+     stable descriptive IDs and field `assertion`, not `claim`.
+   - Each edge has `id`, a **nonempty** `from` list (jointly required
+     AND), `to`, `method`, and `justification`. Alternative incoming
+     edges give OR. No hidden assumptions or empty-source edges.
+   - Theorem applications belong in `edges[].uses`, mathematical
+     hypotheses in `theorems[].required_hypotheses`, local conditions in
+     `scope`/`obligations`. Mathematical theorem dependencies are
+     **separate from course permission** in `policy.yaml`.
+   - Record precise theorem statements with trustworthy references and
+     common mistakes (`id`, `related_edges`, `pattern`, `defect`,
+     `category`). Mistakes are not valid proof edges. No grading points.
+9. Independently verify each node, hyperedge, theorem application,
+   quantifier, local scope, case split, cycle and complete path. Seek
+   counterexamples; distinguish actual errors, incomplete arguments and
+   acceptable implicit reasoning. Structural validation is never proof
+   correctness. Follow `prompts/verify-solution-graph.md` for an
+   exception-focused report, not repeated successful proofs.
 
-**Serialization contract (mandatory):**
+## Checkpoint B — newly discovered dependencies only
 
-6. Write YAML strictly according to the repository's canonical v1.0 format.
-   The exact required top-level keys are:
-   `schema_version`, `problem`, `canonical_notation`, `theorems`,
-   `nodes`, `edges`, `mistakes`.
-   - Inline mathematics: `$A+B=C$`.
-   - Display mathematics: `\[ A+B=C \]`.
-   - For TeX strings, use YAML single quotes or literal block scalars
-     (`|-`) to preserve backslashes. Never use legacy `\( ... \)`.
-   - Keep `nodes`, `edges`, `theorems`, and `mistakes` as lists.
-   - Do not include scoring points, penalties, or UI/layout information.
-   - Referenced node, theorem, and edge IDs must resolve.
+If full proof development introduces an unapproved theorem/step, changes
+the mathematical statement of an approved theorem, exceeds the approved
+problem scope, or adds a conflicting local requirement:
+- **Stop the affected routes** and show a concise *delta table* describing
+  what changed, the exact mathematical need and suggested decision.
+- Reuse existing **same-assignment** approvals without re-asking.
+- Obtain explicit new instructor decisions; update only the relevant
+  `policy.yaml` entries, preserving previous approvals.
+- Reverify affected mathematical nodes, edges and complete proof paths.
+  Never imply that silence or an earlier assignment authorized the change.
 
-**Deliverables and acceptance gate:**
+## Serialization, validation and delivery
 
-7. **Only after resolving the instructor checkpoint**, prepare
-   `<assignment>/<problem>/graph.yaml` and
-   `<assignment>/<problem>/verification.md` as the two standard per-problem
-   deliverables. Use the focused report format in
-   `prompts/verify-solution-graph.md`: instructor decisions and pending
-   questions, compact AI verification summary and material exceptions, and
-   structural validation/review status. Reference exact graph IDs; do not
-   reproduce the full proofs or list every successful inference. Do **not** generate, update, or maintain `visualization.md` or a
-   separate Mermaid proof map. Proof Atlas renders graphs on demand from
-   `graph.yaml` without an additional visualization file.
-8. Validate the approved candidate **before committing its graph YAML**.
-   Run `python scripts/validate_graphs.py` from the repository root after
-   installing `PyYAML` and `jsonschema` if needed. Fix **all** reported
-   parsing, schema, reference, and reachability errors; rerun until the
-   validator passes. If executing the validator is unavailable, clearly say
-   so, provide the unverified YAML, and do **not** claim validation passed.
-   Also check that the interactive viewer can import the YAML when feasible.
-9. Commit `graph.yaml` only after explicit instructor theorem/argument
-   decisions and mathematical/structural verification. For new files, use a
-   descriptive branch/pull request for review. For an existing graph,
-   preserve human-verified nodes, edges and IDs; submit a *minimal proposed
-   patch* rather than overwriting approved content. No unapproved drafts or
-   placeholder graphs should be committed. Do not merge mathematical changes
-   without instructor approval.
+10. The canonical graph v1.0 has exactly the required keys
+    `schema_version`, `problem`, `canonical_notation`, `theorems`,
+    `nodes`, `edges`, `mistakes`. Follow the JSON Schema and
+    `SCHEMA.md` exactly. Use `$...$` inline and `\\[...\\]` display math;
+    TeX strings should use YAML single quotes or literal blocks, not
+    legacy `\\(...\\)`.
+11. Use the layout:
+    `assignments/<assignment-id>/policy.yaml`
+    `assignments/<assignment-id>/<problem-id>/graph.yaml`
+    `assignments/<assignment-id>/<problem-id>/verification.md`.
+    Keep the policy outside `graph.yaml`; it is **not** part of the
+    solution-graph JSON Schema. Each per-problem report references
+    applicable policy entries, records unresolved issues and independently
+    verified versus unchecked claims, and reports structural validation
+    accurately. Do not create `visualization.md` or a separate graph.
+12. Run `python scripts/validate_graphs.py`; fix errors and rerun. If
+    execution is unavailable, **say so**; do not claim it passed. Check
+    viewer import when feasible. Never confuse structural validity,
+    AI mathematical verification, theorem policy approval or final
+    instructor graph approval.
+13. **Only after the instructor explicitly resolves the necessary policy
+    decisions** and the mathematical checks, commit the scoped
+    `policy.yaml`, per-problem `graph.yaml` and `verification.md` to
+    a reviewable GitHub PR in the instructor-owned repository. Preserve
+    approved IDs/content and propose minimal diffs. Do **not merge**
+    mathematical changes without instructor approval. No student audit.
 
-**While the checkpoint is pending:** Stop after showing the theorem/argument
-inventory and asking the instructor for decisions; do not claim the graph
-was committed. **After approval:** Link to the YAML, verification report,
-and pull request (if applicable), and distinguish (a) structurally validated,
-(b) mathematically verified, (c) course policy confirmed and (d) final
-instructor graph approval still needed. Stop here.
-Do not audit student homework.
+If checkpoint A or B is pending, **stop at the decision table** and
+request an answer; do not commit any unapproved draft graph.
 
-## How to invoke
+## Invocation
 
-Open GPT Work, connect **your own instructor repository** initialized from the public Proof Atlas workflow, attach the problems PDF, and say:
+In GPT Work, connect the instructor-owned repository and attach the
+problem PDF. Ask:
 
-> Generate and verify solution hypergraphs for this PDF in
-> my own instructor GitHub repository (not the public viewer repository).
-> First read `AGENTS.md`, `prompts/generate-solution-graph.md`,
-> `prompts/verify-solution-graph.md`, `SCHEMA.md`, and the JSON schema.
-> Before committing any graph YAML, show me a theorem-use/justification
-> table and ask which theorems may be cited, must be proved, or are excluded.
-> After I answer, finish mathematical verification, validate YAML, and
-> propose a pull request. Do not audit student submissions.
+> For this assignment, first inventory the likely theorem dependencies
+> from preliminary strategies and show one Cite / Derive / Exclude table.
+> Do not build or commit full graph YAML until I respond. Prior
+> assignments are historical context, not permission. After approval,
+> save assignments/<assignment>/policy.yaml, construct and independently
+> verify the hypergraphs, and propose a PR. Ask only about *new* dependencies
+> discovered later. Do not audit student submissions.

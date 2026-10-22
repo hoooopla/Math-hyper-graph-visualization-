@@ -17,17 +17,28 @@ instructor uses a separate GitHub repository** for their assignments.
    to copy only the relevant files into your repository. The public
    `core/` and `workflow/` files become instructor-side
    `SCHEMA.md`, `schema/`, `prompts/` and `scripts/`.
-4. Work independently analyzes the problems, then **pauses before
-   committing graph YAML** to ask which theorems may be **Cited**,
-   must be **Derived**, or are **Excluded**, and whether implicit
-   arguments need more justification.
-5. After your explicit decisions, Work re-verifies the proposed mathematics,
-   validates the YAML, and opens a PR containing `graph.yaml` and a
-   concise `verification.md` per problem. Review it before merging.
+4. **Early checkpoint, before full proof graphs:** Work sketches the main
+   natural strategies for every problem, lists likely theorem dependencies
+   in one assignment-wide table and asks which are **Cited**, **Derived**,
+   or **Excluded**. Previous assignments can inform recommendations but
+   never automatically authorize theorem use in a new assignment.
+5. After your explicit decisions, Work creates
+   `assignments/<assignment-id>/policy.yaml` from the inert
+   `templates/assignment-policy.template.yaml` in your private repo.
+   The policy records exact statements, problem scope, and real
+   instructor-approval evidence, including explicitly approved overrides.
+6. Work now builds complete proofs and independently verifies mathematics.
+   If a previously unapproved theorem or nonroutine step arises, it asks
+   **only for that new dependency**, preserves earlier approvals and
+   re-verifies affected routes.
+7. Work validates graph YAML and opens a PR with the assignment policy,
+   each `graph.yaml` and concise `verification.md`. Review mathematics
+   and policy before merging.
 
-The pre-commit pause is a **prompt instruction**, not a GitHub permission
-rule. If Work cannot run the validation script, it must report that
-rather than claim a successful run.
+The early checkpoint is a **GPT Work prompt instruction**, not an
+enforced GitHub permission rule. A real policy file is created only after
+the instructor's response. If Work cannot run the validator, it must
+report that rather than claiming the check passed.
 
 ## Option B — create a private workspace locally
 
@@ -51,6 +62,8 @@ SCHEMA.md
 schema/solution-graph.schema.json
 prompts/generate-solution-graph.md
 prompts/verify-solution-graph.md
+prompts/assignment-policy.md
+templates/assignment-policy.template.yaml
 scripts/validate_graphs.py
 requirements.txt
 examples/commuting-square-roots/
@@ -63,6 +76,29 @@ Validate it locally:
 python -m pip install -r requirements.txt
 python scripts/validate_graphs.py
 ```
+
+## Assignment policy structure
+
+Only the instructor's own repository contains assignment policies and
+course materials. For example:
+
+```text
+assignments/
+  HW01/
+    policy.yaml
+    P01/graph.yaml
+    P01/verification.md
+    P02/graph.yaml
+    P02/verification.md
+  HW02/
+    policy.yaml  # decisions are separate, never inherited
+```
+
+`policy.yaml` is **not** part of `graph.yaml` or its JSON Schema.
+Keep only confirmed instructor decisions in it; per-problem
+`verification.md` files reference the approved entries and exceptions.
+The exact format and problem-specific override rules are in
+[Assignment policy](../workflow/assignment-policy.md).
 
 ## Inspect and iterate
 

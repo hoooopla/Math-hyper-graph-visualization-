@@ -1,149 +1,152 @@
-# Independent verification and instructor-decision workflow
+# Independent verification and assignment-scoped instructor policy
 
-This prompt governs the content of each `verification.md` and the mandatory
-**instructor checkpoint before committing a new or revised `graph.yaml`**.
-It is invoked by `prompts/generate-solution-graph.md` and applies again
-whenever later graph iterations introduce new theorems or justification policies.
-Do not audit student submissions unless specifically requested.
+This prompt governs the mathematical checks, the **early assignment-wide
+Cite / Derive / Exclude checkpoint**, later incremental policy changes and
+each concise `verification.md`. Read `AGENTS.md`, `SCHEMA.md`, the
+JSON Schema, `prompts/assignment-policy.md`, the PDF and existing files
+before work. Do not audit student work unless explicitly requested.
 
-## 1. Independently verify the proposed mathematics
+## 1. Preliminary checkpoint BEFORE complete proof generation
 
-Read `AGENTS.md`, `SCHEMA.md`, the JSON Schema, the problem statement,
-and any existing graph and verification report. Independently reconstruct
-the main arguments instead of trusting a reference solution or earlier AI output.
+The earliest pass is exploratory, not a completed graph: extract all
+problems, identify likely proof strategies and inventory the substantial
+theorems/lemmas and nonroutine implicit steps they might require. Confirm
+candidate statements, essential mathematical hypotheses and sources as far
+as needed to make an informed question. Mark uncertain applicability rather
+than assuming a candidate works; do not require completed proof paths yet.
 
-- Check **every** node, AND-hyperedge, goal path, quantifier, local scope,
-  theorem hypothesis, case split, and possible circular dependency.
-- Seek counterexamples to questionable implications; correct identifiable
-  defects before requesting instructor decisions.
-- Check that the main natural proof approaches are represented without
-  redundant variants. Keep any unresolved mathematical uncertainty explicit.
-- Structural schema validation is not mathematical verification.
+Deduplicate dependencies across all problems in the **current assignment**.
+For each item present:
 
-This checking process must be thorough, but the written report should be
-**exception-focused**: do not repeat every correct assertion, edge or proof
-path already visible in `graph.yaml`. Cite exact graph IDs for anything
-requiring attention and give a brief aggregate coverage statement instead.
-
-## 2. Mandatory theorem-and-justification checkpoint (BEFORE graph commit)
-
-Before any commit, pull request, or overwrite containing a new or modified
-`graph.yaml`, inspect proposed proofs and **show the instructor a consolidated
-decision table**. Make draft mathematical analyses locally or in conversation;
-do not use a GitHub commit to save an unapproved draft graph.
-
-Inventory every named or substantial external theorem/lemma **actually
-proposed for use** in at least one proof route, plus every nontrivial step
-whose expected level of explanation may depend on course policy.
-Routine algebra can be grouped if there is no plausible course-level issue.
-Across multiple problems, deduplicate shared results but show the relevant
-problem IDs and provisional or existing theorem/edge IDs.
-
-For each item show:
-
-| Item and affected problems/graph IDs | Exact result or step | Mathematical applicability | Suggested course treatment | Instructor decision |
+| Candidate item / affected problems | Precise statement and intended role | Conditions/applicability | Suggested treatment (not approved) | Instructor decision |
 | --- | --- | --- | --- | --- |
-| `THM_...`, `E_...` | Precise statement; source when known | Are its hypotheses met? Why? | Cite / Derive / Exclude | Pending |
+| `THM_...` / P01, P02 | Theorem + source; proposed strategy | Exact hypotheses; known vs uncertain | Cite / Derive / Exclude | Pending |
 
-Explain the choices:
+Include nonroutine `STEP_...` items if the permitted implicit
+justification depends on assignment expectations. Group only genuinely
+routine algebra.
 
-- **Cite:** The result may be invoked directly, but every application must
-  still satisfy its mathematical hypotheses.
-- **Derive:** A proof or appropriate justification is required inside the
-  solution graph; a bare citation or hidden invocation is insufficient.
-- **Exclude:** The result may not be used as an unproved theorem in the
-  approved solution routes. Seek a different valid argument.
-- **Pending:** The instructor has not decided; do not silently select a
-  course policy. Mathematical validity and course admissibility are distinct.
+Use prior assignments solely as context about course progress. A previous
+approval never transfers. An existing decision for **this same assignment**
+may cover a proposed use only if the result, treatment and explicit
+problem scope match; identify its policy source and ask only about
+uncovered or changed items.
 
-Also ask whether any otherwise routine inferences require an explicit
-argument in this assignment. If the user has supplied a policy previously,
-show its source/scope and request confirmation only for any new or ambiguous
-items; never claim a policy was approved without evidence.
+**STOP AND ASK** the instructor which items may be **Cited**, must be
+**Derived**, or must be **Excluded**, and whether additional steps
+must be proved rather than cited or left implicit. Do not commit
+a `graph.yaml` or open a graph-containing PR while a necessary
+decision is pending. **Pause for an explicit response**, never assume
+consent from silence.
 
-**STOP AND ASK:**
+Definitions:
 
-> For each listed theorem or step, which treatment applies: Cite, Derive,
-> or Exclude? Are there further results students must prove rather than cite?
-> Please confirm the course/assignment scope of your choices. I will not
-> commit the graph YAML until this checkpoint is resolved.
+- **Cite:** direct invocation allowed in the approved scope, but the
+  theorem's mathematical hypotheses must independently be checked.
+- **Derive:** supply an actual valid proof/justification, not a bare cite.
+- **Exclude:** no unproved invocation of that result; replace the route
+  or give a derivation only if instructor permission allows.
+- **Pending:** no permission at all; omit the unapproved route or stop
+  if it is necessary for a complete solution.
 
-No user response means **no graph commit**, not implied permission.
-If the user explicitly defers a decision, keep the affected route out of
-the proposed approved graph until resolved, or stop if the graph cannot be
-completed without it. Preserve existing instructor-approved graph content;
-the checkpoint must not overwrite earlier approvals. If later edits add
-an unreviewed theorem or a new justification requirement, reopen the gate
-for only the new or changed items.
+## 2. Persist confirmed decisions for one assignment
 
-## 3. Apply decisions, then verify the revised graph again
+After the instructor's response, create or update
+`assignments/<assignment-id>/policy.yaml` using the workspace template
+and `prompts/assignment-policy.md`.
 
-After an explicit instructor reply:
+- Record **only confirmed** items, exact theorem/step statements, affected
+  problem IDs, the Cite / Derive / Exclude choice, and actual source of
+  instructor approval. Never invent an approval reference or date.
+- A problem-level exception overrides an assignment-level entry **only**
+  if explicitly approved for that exact problem.
+- Never infer permissions from earlier assignments; their records may
+  inform recommendations only.
+- Where decisions are partial, omit pending entries and exclude their
+  routes. Do not characterize an incomplete policy as universally approved.
+- In `verification.md`, cite relevant policy IDs and any applicable
+  problem overrides rather than duplicating the entire assignment table.
 
-1. Reconcile theorem usage with the approved Cite / Derive / Exclude choices.
-2. If Derive was selected, include a mathematically valid proof/derivation
-   using nodes and justified hyperedges; avoid circular citations.
-3. Exclude unapproved direct theorem-invocation routes from the proposed
-   canonical graph; preserve alternative routes that satisfy the policy.
-4. Re-run independent mathematical checks on **all affected nodes, edges,
-   and paths**, not just the theorem table.
-5. Run `python scripts/validate_graphs.py` when execution is available.
-   Report accurately whether it was run; correct all failures.
-6. Commit the proposed `graph.yaml` and `verification.md` only after this
-   gate and validation. Propose changes in a pull request; do not merge
-   mathematical changes without instructor approval.
+Approval of a course treatment is not proof of mathematical
+applicability, and neither establishes the correctness of an inference.
 
-Course permission is not a proof of mathematical correctness; mathematical
-verification is not an instructor's course-policy approval.
+## 3. Independently construct and adversarially verify
 
-## 4. Required `verification.md` contents (concise, exception-focused)
+After the preliminary gate, independently derive the main mathematical
+arguments allowed by the policy. Check **every** node, AND-hyperedge,
+quantifier, theorem assumption, local scope, case split, reachability,
+cycle and complete proof path. Independently verify instructor reference
+solutions too. Look for counterexamples and important missing approaches;
+remove faulty arguments. Distinguish genuine errors from acceptable
+implicit arguments in the given assignment.
 
-Write **one report per problem**, with these sections:
+A graph may cite a theorem only where both (a) its hypotheses hold
+mathematically and (b) the corresponding unproved invocation is explicitly
+permitted in the policy for that problem. A `derive` decision requires
+a proof, and `exclude` prohibits an unproved shortcut. Preserve stable IDs
+and human-approved arguments when modifying an existing graph.
 
-### Instructor decisions and unresolved questions
+**Delta checkpoint:** If graph construction or revisions introduce a new
+substantial result, changed theorem statement, uncovered problem, or
+new course-dependent implicit argument, stop the affected route(s);
+show **only those new or changed items** in a decision table. Wait for
+an explicit response. Update the same assignment policy and reverify
+the affected mathematical dependencies before committing changes.
+Do not restart the whole policy checkpoint without cause.
 
-- Record the decisions actually given, **with scope** (course/assignment/
-  problem), exact theorem/edge IDs, and the choice Cite / Derive / Exclude.
-- Put remaining instructor questions first, each with a stable `REVIEW_...`
-  ID, affected IDs, a concrete question, relevant evidence, and a suggested
-  option. Do not present a recommendation as a confirmed decision.
-- Record newly arising requirements about implicit steps only if they
-  materially affect allowed solutions. Do not duplicate the full theorem
-  statements or edge justifications already in `graph.yaml`.
-- If no questions remain, write `None pending` explicitly.
+## 4. Validation and GitHub review gate
 
-### AI verification summary and exceptions
+- Run `python scripts/validate_graphs.py` and correct all structural
+  errors when execution is available; otherwise say validation was not run.
+- The `policy.yaml` is **outside** the canonical solution-graph schema:
+  do not add policy fields to `graph.yaml`.
+- An instructor response permits recording a scoped policy; it is
+  **not** approval to merge mathematical graph changes.
+- Do not commit a graph or a claimed policy approval until the
+  applicable instructor decision is explicit. Do not merge mathematical
+  changes without final instructor review and approval.
+- Structural validation is not mathematical verification.
 
-- State which graph revision and how many nodes, edges and goals were
-  independently checked; state whether all goals have verified routes.
-- Record **only** invalid, incomplete, uncertain, or materially contentious
-  items, citing IDs, the mathematical defect/evidence, remediation and status.
-- Record missing important strategies only if independently identified;
-  do not add routine proof-path summaries or a second copy of the graph.
-- If the AI could not check any item, identify it as `not_checked`; do not
-  call the graph mathematically verified.
+## 5. `verification.md` — concise exception-focused report
 
-### Structural validation and review status
+Use exactly these conceptual sections:
 
-- Give validator command, execution status and results (or why not executed).
-- Separately report mathematical verification, course-policy decisions,
-  pending instructor questions, and final graph review/merge status.
-- Never label an AI-verified graph `instructor-approved` without an
-  explicit instructor decision; code/CI success alone does not suffice.
+### Instructor policy and pending questions
 
-Keep reports readable and brief when there are no exceptions. Preserve
-existing human decisions and stable IDs across iterations. Do not add
-grading points, student judgments, or separate `visualization.md` files.
+- Give the assignment `policy.yaml` path, applicable theorem/step IDs and
+  problem override IDs, and the actual scope of instructor decisions.
+- List unresolved questions with stable `REVIEW_...` IDs, exact affected
+  graph IDs, specific mathematical evidence and suggested treatment.
+  If no questions remain, say `None pending`.
+- Do not paste the complete policy or reprint theorem statements already
+  defined in the graph/policy.
 
-## Example of the pre-commit question
+### Independent mathematical verification — summary and exceptions
 
-Problem III proposes using `THM_TONELLI` in `E_TONELLI_SECTIONS`.
-Mathematically, the integrand is nonnegative and measurable; the
-application is valid. **Course decision needed:**
+- State which graph revision and how many nodes, edges, goals and
+  complete paths were checked; distinguish tested versus unexplored paths.
+- Record only invalid, incomplete, uncertain or contentious items,
+  with exact IDs, diagnosis, remediation and status. Record material
+  missing approaches when found. Identify anything `not_checked`.
+- Do not duplicate all successful proofs.
 
-- Cite Tonelli directly?
-- Derive the relevant formula without citing it?
-- Exclude this method from approved solution routes?
+### Structural validation and approval status
 
-Do not commit the graph until the instructor responds or an applicable
-prior explicit policy is confirmed.
+- State the validator command and actual outcome (or unavailability).
+- Separately identify (1) structural validation,
+  (2) independent mathematical verification,
+  (3) assignment-specific instructor theorem-policy confirmation, and
+  (4) final instructor graph approval/merge state. Never present one as
+  establishing another.
+
+Stop after graph generation, independent verification and proposed PR.
+No grading, student submissions, or `visualization.md`.
+
+## Example checkpoint delta
+
+Suppose P02 previously received permission to `cite` `THM_HEINE_BOREL`.
+A newly found alternative proof for P02 uses `THM_BOLZANO_WEIERSTRASS`
+without an applicable HW policy entry. Keep the Heine–Borel approval,
+stop only this new route and ask for `THM_BOLZANO_WEIERSTRASS` with its
+statement, assumptions, P02 context, source, and proposed treatment.
+Earlier homework permissions are not sufficient.

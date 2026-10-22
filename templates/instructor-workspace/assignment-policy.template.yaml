@@ -1,0 +1,8 @@
+# TEMPLATE ONLY — do not treat this file as an instructor approval.
+# Copy to assignments/<assignment-id>/policy.yaml AFTER explicit instructor
+# Cite / Derive / Exclude decisions for that assignment. Preserve actual
+# evidence and scope in every confirmed entry; leave unknown decisions OUT.
+# See prompts/assignment-policy.md for rules and an annotated example.
+assignment_id: REPLACE_WITH_ASSIGNMENT_ID
+decisions: []
+problem_overrides: []

@@ -22,8 +22,11 @@ format. The graph is mathematical data, not a grading or UI-layout document.
   `edges[].uses` names mathematical theorem dependencies;
   `required_hypotheses` names mathematical assumptions, **not whether a
   course permits citing the result without proof**. Instructor decisions
-  (cite / derive / exclude) belong in `verification.md` with a clear scope,
-  and must be requested before committing a new or revised graph.
+  (cite / derive / exclude) belong in the *assignment's*
+  `policy.yaml`, outside the solution-graph schema, and are referenced
+  in each problem's `verification.md` with precise scope. Obtain explicit
+  decisions early, before generating full proof graphs; request approval
+  for new dependencies discovered later before committing affected routes.
 - **Mistakes** are a list of `{id, related_edges, pattern, defect, category}`.
   Mistakes annotate invalid or incomplete reasoning, never valid proof edges.
   No grading points or penalties.
