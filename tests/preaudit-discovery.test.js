@@ -14,7 +14,7 @@ test("optional pre-audit discovery runs after independent sketch but before poli
   assert.ok(optional < checkpoint && checkpoint < full);
   assert.match(generator, /If no explicit opt-in, attachments or permitted access exist/);
   assert.match(generator, /skip/);
-  assert.match(generator, /independently reconstructing any candidates/);
+  assert.match(generator, /independently\s+reconstructing any candidates/);
   assert.match(generator, /do \*\*not\*\* grade students/);
   assert.match(generator, /discovery\.md/);
   assert.match(generator, /Stop the affected routes/);
@@ -35,7 +35,7 @@ test("discovery prompt screens batches, records coverage and examines outliers w
   assert.match(doc, /not accessible/);
   assert.match(doc, /do not claim/);
   assert.match(doc, /not student homework auditing/);
-  assert.match(doc, /do not assign grades, correctness labels/);
+  assert.match(doc, /do not assign grades, correctness labels/i);
   assert.match(doc, /does not automatically add|do not automatically add/);
   assert.match(doc, /never invent/);
 });
