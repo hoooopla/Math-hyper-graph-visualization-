@@ -1,6 +1,16 @@
 # Start your own Math Homework Audit workspace
 
-## 1. Get a fresh repository
+## Option A — ask GPT Work to create your independent repository
+
+If your GPT Work can create repositories with your authorized GitHub connection,
+use the **one-time setup prompt in [README.md](../README.md#start-with-gpt-work)**.
+It instructs Work to copy the **public starter branch only** into a repository
+you own. Check the resulting repository before trusting that setup succeeded.
+If GitHub creation/upload is unavailable to Work, use Option B.
+
+## Option B — create your repository yourself
+
+### 1. Get a fresh repository
 
 This [public starter branch](https://github.com/hoooopla/Math-hyper-graph-visualization-/tree/math-homework-audit-starter) contains a standalone Git root snapshot of the workflow; the source repository's **main branch is a different project (Proof Atlas)**. Do **not** fork its main branch and assume you already have this starter.
 
