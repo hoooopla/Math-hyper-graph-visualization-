@@ -423,3 +423,24 @@ button { color: inherit; }
   }
   .app-shell.sidebar-collapsed .sidebar { visibility: visible; overflow: auto; }
 }
+
+/* Verification marks remain attached to a graph and its proof paths. */
+.path-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px; }
+.path-card { min-width: 0; }
+.path-card strong { display: flex; align-items: center; gap: 5px; }
+.path-card strong svg { color: var(--accent); }
+.verify-path { display: flex; align-items: center; gap: 4px; padding: 4px; color: #aab6a1; font: 10px ui-monospace, monospace; cursor: pointer; }
+.verify-path input, .verify-node input { accent-color: var(--accent-dim); cursor: pointer; }
+.verify-node { display: flex; align-items: center; gap: 9px; margin: 16px 0; padding: 12px; border: 1px solid #394b2c; border-radius: 6px; background: #141d14; color: #d9eec6; font: 12px ui-monospace, monospace; cursor: pointer; }
+.verify-node span, .node-topline em { display: inline-flex; align-items: center; gap: 4px; }
+.verify-node svg { color: var(--accent); }
+.assertion-node.source-highlight { border-color: var(--cyan); box-shadow: 0 0 0 2px #6be6dc55, 0 0 22px #6be6dc22; opacity: 1; }
+.assertion-node.target-highlight { border-color: var(--accent); box-shadow: 0 0 0 2px #c9ff6455, 0 0 22px #c9ff6422; opacity: 1; }
+.links path.selected-incoming { stroke: var(--cyan); stroke-width: 3; opacity: 1; }
+.links path.selected-outgoing { stroke: var(--accent); stroke-width: 3; opacity: 1; }
+.links #arrow-in path { fill: var(--cyan); }
+.links #arrow-out path { fill: var(--accent); }
+.flow-legend { position: absolute; z-index: 13; top: 11px; right: 12px; display: flex; flex-wrap: wrap; gap: 5px 12px; padding: 7px 9px; border: 1px solid #354151; border-radius: 5px; background: #0c111be8; font: 10px ui-monospace, monospace; pointer-events: none; }
+.flow-in { color: var(--cyan); }
+.flow-out { color: var(--accent); }
+@media (max-width: 760px) { .flow-legend { top: 43px; left: 8px; right: auto; max-width: calc(100% - 16px); } }

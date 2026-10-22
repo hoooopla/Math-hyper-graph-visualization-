@@ -77,5 +77,9 @@ export function changeRequest(document) {
     source_file: document.name,
     changes: changes.map(({ kind, id, status, fields }) => ({ kind, id, status, fields })),
     comments: document.comments.map(({ type, id, field, text }) => ({ type, id, field, text })),
+    review_state: document.verification ? {
+      verified_nodes: [...document.verification.nodes].map(([id, fingerprint]) => ({ id, fingerprint })),
+      verified_paths: [...document.verification.paths].map(([key, fingerprint]) => ({ key, fingerprint })),
+    } : { verified_nodes: [], verified_paths: [] },
   };
 }

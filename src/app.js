@@ -3,6 +3,7 @@ import { sampleGraphYaml } from "./sampleGraph.js?v=canonical-sample-v1";
 import { renderMath } from "./math-render.js";
 import { contextCardsHtml, contextInspectorHtml } from "./context-ui.js";
 import { serializeYaml, compareGraphs, changeRequest } from "./review-core.js";
+import { nodeFingerprint, pathFingerprint, pathKey, reviewState, sourceKey, validReviewState } from "./verification-core.js";
 const root = document.querySelector("#root");
 const TYPE_LABELS = { premise: "Premises", milestone: "Milestones", goal: "Goals" };
 const state = {
@@ -107,6 +108,13 @@ function renderHeader() {
 }
 
 function activeDoc() { return state.documents.find((doc) => doc.key === state.activeDocument); }
+function saveVerification(doc = activeDoc()) {
+  doc.report.graph.review_state = reviewState(doc);
+  try { localStorage.setItem(sourceKey(doc.source), JSON.stringify(doc.report.graph.review_state)); } catch { /* YAML export still carries the marks. */ }
+}
+function pathVerified(doc, goalId, path) {
+  return doc.verification.paths.get(pathKey(goalId, path)) === pathFingerprint(doc.report.graph, path);
+}
 function renderTabs() {
   tabbar.innerHTML = state.documents.map((doc) => `<button role="tab" aria-selected="${doc.key === state.activeDocument}" class="graph-tab ${doc.key === state.activeDocument ? "active" : ""}" data-tab="${doc.key}" title="${escapeAttribute(doc.name)}">${escapeHtml(doc.name)}${compareGraphs(doc.originalGraph, doc.report.graph).changes.length || doc.comments.length ? `<span class="tab-dot" aria-label="Draft changes"></span>` : ""}</button>`).join("") + `<button class="tab-add" data-action="upload" aria-label="Add YAML files">＋</button>`;
 }
@@ -144,7 +152,7 @@ function renderSidebar() {
         <select id="proof-goal" data-goal aria-label="Select proof goal">
           ${goals.map((goal) => `<option value="${escapeAttribute(goal.id)}" ${goal.id === chosenGoal?.id ? "selected" : ""}>${escapeHtml(goal.id)}</option>`).join("")}
         </select></label>` : ""}
-      ${paths.length ? paths.map((path, index) => `<button class="path-card ${state.activePath === index ? "active" : ""}" data-path="${index}"><span class="path-number">${String(index + 1).padStart(2, "0")}</span><span><strong>Path ${index + 1}</strong><small>${path.edgeIds.size} inferences · ${path.nodeIds.size} assertions</small></span>${icon("right")}</button>`).join("") : `<p class="empty-note">No complete proof path reaches this goal.</p>`}
+      ${paths.length ? paths.map((path, index) => `<div class="path-row"><button class="path-card ${state.activePath === index ? "active" : ""}" data-path="${index}"><span class="path-number">${String(index + 1).padStart(2, "0")}</span><span><strong>Path ${index + 1} ${pathVerified(activeDoc(), chosenGoal.id, path) ? icon("check", 13) : ""}</strong><small>${path.edgeIds.size} inferences · ${path.nodeIds.size} assertions</small></span>${icon("right")}</button><label class="verify-path" title="Mark path ${index + 1} verified"><input type="checkbox" data-verify-path="${index}" aria-label="Path ${index + 1} verified" ${pathVerified(activeDoc(), chosenGoal.id, path) ? "checked" : ""}><span>Verified</span></label></div>`).join("") : `<p class="empty-note">No complete proof path reaches this goal.</p>`}
     </section>
     <button class="load-example" data-action="example">${icon("spark")} Reload example</button>`;
 }
@@ -153,7 +161,7 @@ function renderWorkspace() {
   if (state.exportOpen) {
     const doc = activeDoc();
     const request = changeRequest(doc);
-    workspace.innerHTML = `<div class="review-screen"><div class="review-heading"><span class="eyebrow">Handoff review</span><h2>Export ${escapeHtml(doc.name)}</h2><p>Review changes and comments before downloading. The full graph preserves a clear starting point for GPT Work.</p></div><div class="review-summary">${request.changes.length} graph changes · ${request.comments.length} comments · ${state.report.errors.length} validation errors</div>${changeListHtml(compareGraphs(doc.originalGraph, doc.report.graph), "draft")}${request.comments.map((c) => `<div class="review-row"><strong>Comment · ${escapeHtml(c.type)} ${escapeHtml(c.id)} · ${escapeHtml(c.field)}</strong><p>${escapeHtml(c.text)}</p></div>`).join("")}<div class="export-actions"><button class="primary-action" data-action="download-yaml" ${state.report.errors.length ? "disabled" : ""}>Download complete YAML</button><button class="header-action" data-action="download-request">Download change request</button><button class="header-action" data-action="export">Back to graph</button></div></div>`;
+    workspace.innerHTML = `<div class="review-screen"><div class="review-heading"><span class="eyebrow">Handoff review</span><h2>Export ${escapeHtml(doc.name)}</h2><p>Review changes and comments before downloading. The full graph preserves a clear starting point for GPT Work.</p></div><div class="review-summary">${request.changes.length} graph changes · ${request.comments.length} comments · ${request.review_state.verified_nodes.length} verified nodes · ${request.review_state.verified_paths.length} verified paths · ${state.report.errors.length} validation errors</div>${changeListHtml(compareGraphs(doc.originalGraph, doc.report.graph), "draft")}${request.comments.map((c) => `<div class="review-row"><strong>Comment · ${escapeHtml(c.type)} ${escapeHtml(c.id)} · ${escapeHtml(c.field)}</strong><p>${escapeHtml(c.text)}</p></div>`).join("")}<div class="export-actions"><button class="primary-action" data-action="download-yaml" ${state.report.errors.length ? "disabled" : ""}>Download complete YAML</button><button class="header-action" data-action="download-request">Download change request</button><button class="header-action" data-action="export">Back to graph</button></div></div>`;
     return;
   }
   if (state.compare) {
@@ -179,6 +187,7 @@ function renderWorkspace() {
     </div>
     <div class="graph-viewport">
     <div class="canvas-tools"><button data-action="zoom-in" aria-label="Zoom in">${icon("plus")}</button><button data-action="zoom-out" aria-label="Zoom out">${icon("minus")}</button><button data-action="fit" aria-label="Fit graph">${icon("fit")}</button></div>
+    ${state.selection?.type === "edge" ? `<div class="flow-legend"><span class="flow-in">Sources → inference</span><span class="flow-out">Inference → result</span></div>` : ""}
     ${visual.nodes.length ? graphWorldHtml(visual, selectedPath) : `<div class="empty-canvas">${icon("search", 24)}<span>No matching graph elements</span></div>`}
   </div>`;
   requestAnimationFrame(() => {
@@ -203,18 +212,24 @@ function graphWorldHtml(visual, selectedPath) {
     const x2 = link.to.x;
     const y2 = link.to.y - (link.to.visualType === "method" ? 27 : 45);
     const mid = (y1 + y2) / 2;
-    return `<path class="${activeEdge(link.edgeId) ? "" : "dimmed"}" d="M ${x1} ${y1} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${y2}" marker-end="url(#arrow)"></path>`;
+    const selectedEdge = state.selection?.type === "edge" ? state.report.graph.edges.find((edge) => edge.id === state.selection.id) : null;
+    const highlighted = selectedEdge?.id === link.edgeId;
+    const role = highlighted ? (link.from.visualType === "method" ? "selected-outgoing" : "selected-incoming") : "";
+    return `<path class="${activeEdge(link.edgeId) && (!selectedEdge || highlighted) ? "" : "dimmed"} ${role}" d="M ${x1} ${y1} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${y2}" marker-end="url(#${role === "selected-incoming" ? "arrow-in" : role === "selected-outgoing" ? "arrow-out" : "arrow"})"></path>`;
   }).join("");
   const nodes = visual.nodes.map((node) => {
     const style = `left:${node.x}px;top:${node.y}px`;
     if (node.visualType === "method") {
       const selected = state.selection?.type === "edge" && state.selection.id === node.id;
-      return `<button class="method-node ${selected ? "selected" : ""} ${activeEdge(node.id) ? "" : "dimmed"}" style="${style}" data-select-type="edge" data-select-id="${escapeAttribute(node.id)}" title="${escapeAttribute(node.method)}">${icon("branch", 14)}<span>${escapeHtml(node.method)}</span></button>`;
+      return `<button class="method-node ${selected ? "selected" : ""} ${activeEdge(node.id) && (state.selection?.type !== "edge" || selected) ? "" : "dimmed"}" style="${style}" data-select-type="edge" data-select-id="${escapeAttribute(node.id)}" title="${escapeAttribute(node.method)}">${icon("branch", 14)}<span>${escapeHtml(node.method)}</span></button>`;
     }
     const selected = state.selection?.type === "node" && state.selection.id === node.id;
-    return `<button class="assertion-node ${node.type} ${selected ? "selected" : ""} ${activeNode(node.id) ? "" : "dimmed"}" style="${style}" data-select-type="node" data-select-id="${escapeAttribute(node.id)}"><span class="node-topline"><em>${node.type}</em><small>${escapeHtml(node.id)}</small></span><span class="node-claim math-text">${mathHtml(node.claim)}</span></button>`;
+    const edge = state.selection?.type === "edge" ? state.report.graph.edges.find((item) => item.id === state.selection.id) : null;
+    const role = edge?.from.includes(node.id) ? "source-highlight" : edge?.to === node.id ? "target-highlight" : "";
+    const verified = activeDoc().verification.nodes.get(node.id) === nodeFingerprint(state.report.graph, node.id);
+    return `<button class="assertion-node ${node.type} ${selected ? "selected" : ""} ${role} ${activeNode(node.id) && (!edge || role) ? "" : "dimmed"}" style="${style}" data-select-type="node" data-select-id="${escapeAttribute(node.id)}"><span class="node-topline"><em>${node.type}${verified ? ` ${icon("check", 12)} verified` : ""}</em><small>${escapeHtml(node.id)}</small></span><span class="node-claim math-text">${mathHtml(node.claim)}</span></button>`;
   }).join("");
-  return `<div class="graph-world" style="width:${visual.width}px;height:${visual.height}px"><svg class="links" width="${visual.width}" height="${visual.height}" viewBox="0 0 ${visual.width} ${visual.height}"><defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker></defs>${links}</svg>${nodes}</div>`;
+  return `<div class="graph-world" style="width:${visual.width}px;height:${visual.height}px"><svg class="links" width="${visual.width}" height="${visual.height}" viewBox="0 0 ${visual.width} ${visual.height}"><defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker id="arrow-in" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker id="arrow-out" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker></defs>${links}</svg>${nodes}</div>`;
 }
 
 function renderInspector() {
@@ -320,7 +335,8 @@ function mistakeInspector(graph, id) {
 function nodeInspector(graph, node) {
   const incoming = graph.edges.filter((edge) => edge.to === node.id);
   const outgoing = graph.edges.filter((edge) => edge.from.includes(node.id));
-  return `<div class="inspector-content"><div class="inspector-kicker"><span class="type-dot ${node.type}"></span>${node.type} assertion</div>${copyId(node.id)}${editable("nodes", node.id, "claim", "Claim", node.claim)}${node.scope ? detail("Scope / local assumptions", mathHtml(formatValue(node.scope)), "important") : ""}${detail("Proof dependencies", `${linkList("Incoming", incoming, "edge")}${linkList("Outgoing", outgoing, "edge")}`)}${commentBox("node", node.id, "claim")}</div>`;
+  const verified = activeDoc().verification.nodes.get(node.id) === nodeFingerprint(graph, node.id);
+  return `<div class="inspector-content"><div class="inspector-kicker"><span class="type-dot ${node.type}"></span>${node.type} assertion</div>${copyId(node.id)}<label class="verify-node"><input type="checkbox" data-verify-node="${escapeAttribute(node.id)}" ${verified ? "checked" : ""}><span>${icon("check", 16)} Verified assertion</span></label>${editable("nodes", node.id, "claim", "Claim", node.claim)}${node.scope ? detail("Scope / local assumptions", mathHtml(formatValue(node.scope)), "important") : ""}${detail("Proof dependencies", `${linkList("Incoming", incoming, "edge")}${linkList("Outgoing", outgoing, "edge")}`)}${commentBox("node", node.id, "claim")}</div>`;
 }
 
 function edgeInspector(graph, edge) {
@@ -340,7 +356,10 @@ function linkList(label, items, type) {
 function loadSource(source, name) {
   const report = parseGraphYaml(source);
   const key = String(Date.now()) + "-" + String(Math.random()).slice(2);
-  const doc = { key, name, source, originalGraph: report.graph ? structuredClone(report.graph) : null, report, comments: [], reviewed: new Set(), selection: null, view: { x: 0, y: 42, scale: 1 }, goalId: null };
+  let stored = null;
+  try { stored = JSON.parse(localStorage.getItem(sourceKey(source))); } catch { /* Local storage is optional. */ }
+  const verification = report.graph && !report.errors.length ? validReviewState(report.graph, report.graph.review_state ?? stored ?? {}) : { nodes: new Map(), paths: new Map() };
+  const doc = { key, name, source, originalGraph: report.graph ? structuredClone(report.graph) : null, report, verification, comments: [], reviewed: new Set(), selection: null, view: { x: 0, y: 42, scale: 1 }, goalId: null };
   state.documents.push(doc);
   activateDocument(key);
 }
@@ -376,9 +395,14 @@ function updateField(input) {
     ? input.value.split("\n").map((line) => line.trim()).filter(Boolean) : input.value;
   if (JSON.stringify(old) === JSON.stringify(value)) return;
   target[field] = value;
+  if (kind === "nodes" && field === "claim") target.assertion = value;
   doc.report = { graph, ...validateGraph(graph) };
   state.report = doc.report;
   doc.reviewed.clear();
+  if (!doc.report.errors.length) {
+    doc.verification = validReviewState(graph, reviewState(doc));
+    saveVerification(doc);
+  }
   const scrollTop = inspector.scrollTop;
   render();
   inspector.scrollTop = scrollTop;
@@ -462,7 +486,7 @@ root.addEventListener("click", async (event) => {
   }
   if (action === "export") { state.compare = null; state.exportOpen = !state.exportOpen; if (state.selection?.type === "difference") state.selection = { type: "context", id: "problem" }; state.mobilePanel = null; render(); }
   if (action === "download-yaml" && !state.report.errors.length) {
-    try { downloadText(activeDoc().name.replace(/\.ya?ml$/i, "") + ".updated.yaml", serializeYaml(state.report.graph)); }
+    try { saveVerification(); downloadText(activeDoc().name.replace(/\.ya?ml$/i, "") + ".updated.yaml", serializeYaml(state.report.graph)); }
     catch (error) { window.alert(error.message); }
   }
   if (action === "download-request") downloadText("change-request.yaml", serializeYaml(changeRequest(activeDoc())));
@@ -502,6 +526,7 @@ root.addEventListener("click", async (event) => {
   const selection = event.target.closest("[data-select-id]");
   if (selection) {
     state.selection = { type: selection.dataset.selectType, id: selection.dataset.selectId };
+    if (state.selection.type === "edge") state.activePath = null;
     if (state.selection.type === "node") {
       const selectedNode = state.report.graph?.nodes?.find((node) => node.id === state.selection.id);
       if (selectedNode?.type === "goal" && selectedNode.id !== state.goalId) {
@@ -541,6 +566,19 @@ root.addEventListener("input", (event) => {
 });
 
 root.addEventListener("change", (event) => {
+  if (event.target.matches("[data-verify-node]")) {
+    const doc = activeDoc(), id = event.target.dataset.verifyNode;
+    event.target.checked ? doc.verification.nodes.set(id, nodeFingerprint(doc.report.graph, id)) : doc.verification.nodes.delete(id);
+    saveVerification(doc); renderWorkspace(); renderInspector(); return;
+  }
+  if (event.target.matches("[data-verify-path]")) {
+    const doc = activeDoc(), graph = doc.report.graph, goal = currentGoal(graph);
+    const path = enumerateProofPaths(graph, goal.id)[Number(event.target.dataset.verifyPath)];
+    if (!path) return;
+    const key = pathKey(goal.id, path);
+    event.target.checked ? doc.verification.paths.set(key, pathFingerprint(graph, path)) : doc.verification.paths.delete(key);
+    saveVerification(doc); renderSidebar(); return;
+  }
   if (event.target.matches("[data-edit-field]")) { updateField(event.target); return; }
   if (event.target.matches("[data-compare]")) {
     state.compare[event.target.dataset.compare] = event.target.value;
@@ -589,6 +627,7 @@ function icon(name, size = 16) {
     fit: '<path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/>',
     "panel-close": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 9l-3 3 3 3"/>',
     "panel-open": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M12 9l3 3-3 3"/>',
+    check: '<path d="M5 12l5 5L19 7"/>',
   };
   return `<svg aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths[name] ?? ""}</svg>`;
 }
