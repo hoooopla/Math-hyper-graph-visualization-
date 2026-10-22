@@ -1,3 +1,5 @@
+import { enumerateProofPaths } from "./graph-core.js";
+
 const hash = (value) => {
   const text = JSON.stringify(value);
   let result = 2166136261;
@@ -30,6 +32,17 @@ export function nodeFingerprint(graph, id) {
     theorems: graph.theorems.filter((theorem) => used.has(theorem.id)).sort((a, b) => a.id.localeCompare(b.id)) });
 }
 
+export function edgeFingerprint(graph, id) {
+  const edge = graph.edges.find((item) => item.id === id);
+  if (!edge) return null;
+  const connected = new Set([...edge.from, edge.to]);
+  const used = new Set(edge.uses ?? []);
+  return hash({ problem: graph.problem, edge,
+    nodes: graph.nodes.filter((node) => connected.has(node.id)).sort((a, b) => a.id.localeCompare(b.id)),
+    theorems: graph.theorems.filter((theorem) => used.has(theorem.id)).sort((a, b) => a.id.localeCompare(b.id)),
+    mistakes: graph.mistakes.filter((mistake) => mistake.related_edges?.includes(id)).sort((a, b) => a.id.localeCompare(b.id)) });
+}
+
 export function pathFingerprint(graph, path) {
   const edges = graph.edges.filter((edge) => path.edgeIds.has(edge.id)).sort((a, b) => a.id.localeCompare(b.id));
   const used = new Set(edges.flatMap((edge) => edge.uses ?? []));
@@ -44,20 +57,24 @@ export function validReviewState(graph, saved = {}) {
   for (const item of saved.verified_nodes ?? []) {
     if (graph.nodes.some((node) => node.id === item.id) && item.fingerprint === nodeFingerprint(graph, item.id)) nodes.set(item.id, item.fingerprint);
   }
+  const edges = new Map();
+  for (const item of saved.verified_edges ?? []) {
+    if (graph.edges.some((edge) => edge.id === item.id) && edgeFingerprint(graph, item.id) === item.fingerprint) edges.set(item.id, item.fingerprint);
+  }
   const paths = new Map();
   const currentPaths = new Map(graph.nodes.filter((node) => node.type === "goal")
     .flatMap((goal) => enumerateProofPaths(graph, goal.id).map((path) => [pathKey(goal.id, path), pathFingerprint(graph, path)])));
   for (const item of saved.verified_paths ?? []) {
     if (currentPaths.get(item.key) === item.fingerprint) paths.set(item.key, item.fingerprint);
   }
-  return { nodes, paths };
+  return { nodes, edges, paths };
 }
 
 export function reviewState(doc) {
   return {
     verified_nodes: [...doc.verification.nodes].map(([id, fingerprint]) => ({ id, fingerprint })),
+    verified_edges: [...doc.verification.edges].map(([id, fingerprint]) => ({ id, fingerprint })),
     verified_paths: [...doc.verification.paths].map(([key, fingerprint]) => ({ key, fingerprint })),
   };
 }
-import { enumerateProofPaths } from "./graph-core.js";
 

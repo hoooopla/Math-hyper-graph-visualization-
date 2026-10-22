@@ -3,7 +3,7 @@ import { sampleGraphYaml } from "./sampleGraph.js?v=canonical-sample-v1";
 import { renderMath } from "./math-render.js";
 import { contextCardsHtml, contextInspectorHtml } from "./context-ui.js";
 import { serializeYaml, compareGraphs, changeRequest } from "./review-core.js";
-import { nodeFingerprint, pathFingerprint, pathKey, reviewState, sourceKey, validReviewState } from "./verification-core.js";
+import { edgeFingerprint, nodeFingerprint, pathFingerprint, pathKey, reviewState, sourceKey, validReviewState } from "./verification-core.js";
 const root = document.querySelector("#root");
 const TYPE_LABELS = { premise: "Premises", milestone: "Milestones", goal: "Goals" };
 const state = {
@@ -162,7 +162,7 @@ function renderWorkspace() {
   if (state.exportOpen) {
     const doc = activeDoc();
     const request = changeRequest(doc);
-    workspace.innerHTML = `<div class="review-screen"><div class="review-heading"><span class="eyebrow">Handoff review</span><h2>Export ${escapeHtml(doc.name)}</h2><p>Review changes and comments before downloading. The full graph preserves a clear starting point for GPT Work.</p></div><div class="review-summary">${request.changes.length} graph changes · ${request.comments.length} comments · ${request.review_state.verified_nodes.length} verified nodes · ${request.review_state.verified_paths.length} verified paths · ${state.report.errors.length} validation errors</div>${changeListHtml(compareGraphs(doc.originalGraph, doc.report.graph), "draft")}${request.comments.map((c) => `<div class="review-row"><strong>Comment · ${escapeHtml(c.type)} ${escapeHtml(c.id)} · ${escapeHtml(c.field)}</strong><p>${escapeHtml(c.text)}</p></div>`).join("")}<div class="export-actions"><button class="primary-action" data-action="download-yaml" ${state.report.errors.length ? "disabled" : ""}>Download complete YAML</button><button class="header-action" data-action="download-request">Download change request</button><button class="header-action" data-action="export">Back to graph</button></div></div>`;
+    workspace.innerHTML = `<div class="review-screen"><div class="review-heading"><span class="eyebrow">Handoff review</span><h2>Export ${escapeHtml(doc.name)}</h2><p>Review changes and comments before downloading. The full graph preserves a clear starting point for GPT Work.</p></div><div class="review-summary">${request.changes.length} graph changes · ${request.comments.length} comments · ${request.review_state.verified_nodes.length} verified nodes · ${request.review_state.verified_edges.length} verified inferences · ${request.review_state.verified_paths.length} verified paths · ${state.report.errors.length} validation errors</div>${changeListHtml(compareGraphs(doc.originalGraph, doc.report.graph), "draft")}${request.comments.map((c) => `<div class="review-row"><strong>Comment · ${escapeHtml(c.type)} ${escapeHtml(c.id)} · ${escapeHtml(c.field)}</strong><p>${escapeHtml(c.text)}</p></div>`).join("")}<div class="export-actions"><button class="primary-action" data-action="download-yaml" ${state.report.errors.length ? "disabled" : ""}>Download complete YAML</button><button class="header-action" data-action="download-request">Download change request</button><button class="header-action" data-action="export">Back to graph</button></div></div>`;
     return;
   }
   if (state.compare) {
@@ -225,7 +225,8 @@ function graphWorldHtml(visual, selectedPath) {
     const style = `left:${node.x}px;top:${node.y}px`;
     if (node.visualType === "method") {
       const selected = state.selection?.type === "edge" && state.selection.id === node.id;
-      return `<button class="method-node ${state.showIds ? "with-id" : ""} ${selected ? "selected" : ""} ${activeEdge(node.id) ? "" : "dimmed"}" style="${style}" data-select-type="edge" data-select-id="${escapeAttribute(node.id)}" title="${escapeAttribute(node.method)}">${icon("branch", 14)}<span class="method-label">${escapeHtml(node.method)}</span>${state.showIds ? `<small class="method-id">${escapeHtml(node.id)}</small>` : ""}</button>`;
+      const verified = activeDoc().verification.edges.get(node.id) === edgeFingerprint(state.report.graph, node.id);
+      return `<button class="method-node ${state.showIds ? "with-id" : ""} ${verified ? "is-verified" : ""} ${selected ? "selected" : ""} ${activeEdge(node.id) ? "" : "dimmed"}" style="${style}" data-select-type="edge" data-select-id="${escapeAttribute(node.id)}" title="${escapeAttribute(node.method)}">${icon("branch", 14)}<span class="method-label">${escapeHtml(node.method)}</span>${state.showIds ? `<small class="method-id">${escapeHtml(node.id)}</small>` : ""}${verified ? `<span class="verified-badge" role="img" aria-label="Verified" title="Verified">${icon("check", 12)}</span>` : ""}</button>`;
     }
     const selected = state.selection?.type === "node" && state.selection.id === node.id;
     const edge = state.selection?.type === "edge" ? state.report.graph.edges.find((item) => item.id === state.selection.id) : null;
@@ -348,7 +349,8 @@ function edgeInspector(graph, edge) {
   const target = graph.nodes.find((node) => node.id === edge.to);
   const theorems = (edge.uses ?? []).map((id) => graph.theorems.find((theorem) => theorem.id === id)).filter(Boolean);
   const mistakes = getRelatedMistakes(graph, edge.id);
-  return `<div class="inspector-content"><div class="inspector-kicker edge">${icon("branch", 14)}inference</div>${copyId(edge.id)}${editable("edges", edge.id, "method", "Method", edge.method, false)}${detail("From · all required", linkList("", sources, "node"), "important")}${detail("To", linkList("", target ? [target] : [], "node"), "important")}${editable("edges", edge.id, "justification", "Justification", edge.justification)}${edge.obligations ? editable("edges", edge.id, "obligations", "Obligations · one per line", edge.obligations) : ""}${edge.scope ? detail("Scope / local assumptions", mathHtml(formatValue(edge.scope)), "important") : ""}${theorems.length ? detail("Theorems", theorems.map((theorem) => `<article class="theorem-card"><button type="button" class="reference-link" data-select-type="theorem" data-select-id="${escapeAttribute(theorem.id)}">${escapeHtml(theorem.id)} ↗</button><span class="math-text">${mathHtml(theorem.statement)}</span></article>`).join("")) : ""}${mistakes.length ? detail("Common mistakes", mistakes.map((mistake) => `<article class="mistake-card"><header class="mistake-header"><span class="mistake-category">${icon("warning", 16)}${escapeHtml(mistake.category)}</span><button type="button" class="reference-link mistake-id" data-select-type="mistake" data-select-id="${escapeAttribute(mistake.id)}">Edit ${escapeHtml(mistake.id)} ↗</button></header><section class="mistake-section"><strong>Mistaken pattern</strong><div class="math-text mistake-pattern">${mathHtml(mistake.pattern)}</div></section><section class="mistake-section defect"><strong>Why it fails</strong><div class="math-text">${mathHtml(mistake.defect)}</div></section></article>`).join("")) : ""}${commentBox("edge", edge.id, "justification")}</div>`;
+  const verified = activeDoc().verification.edges.get(edge.id) === edgeFingerprint(graph, edge.id);
+  return `<div class="inspector-content"><div class="inspector-kicker edge">${icon("branch", 14)}inference</div>${copyId(edge.id)}<label class="verify-node"><input type="checkbox" data-verify-edge="${escapeAttribute(edge.id)}" ${verified ? "checked" : ""}><span>${icon("check", 16)} Verified inference</span></label>${editable("edges", edge.id, "method", "Method", edge.method, false)}${detail("From · all required", linkList("", sources, "node"), "important")}${detail("To", linkList("", target ? [target] : [], "node"), "important")}${editable("edges", edge.id, "justification", "Justification", edge.justification)}${edge.obligations ? editable("edges", edge.id, "obligations", "Obligations · one per line", edge.obligations) : ""}${edge.scope ? detail("Scope / local assumptions", mathHtml(formatValue(edge.scope)), "important") : ""}${theorems.length ? detail("Theorems", theorems.map((theorem) => `<article class="theorem-card"><button type="button" class="reference-link" data-select-type="theorem" data-select-id="${escapeAttribute(theorem.id)}">${escapeHtml(theorem.id)} ↗</button><span class="math-text">${mathHtml(theorem.statement)}</span></article>`).join("")) : ""}${mistakes.length ? detail("Common mistakes", mistakes.map((mistake) => `<article class="mistake-card"><header class="mistake-header"><span class="mistake-category">${icon("warning", 16)}${escapeHtml(mistake.category)}</span><button type="button" class="reference-link mistake-id" data-select-type="mistake" data-select-id="${escapeAttribute(mistake.id)}">Edit ${escapeHtml(mistake.id)} ↗</button></header><section class="mistake-section"><strong>Mistaken pattern</strong><div class="math-text mistake-pattern">${mathHtml(mistake.pattern)}</div></section><section class="mistake-section defect"><strong>Why it fails</strong><div class="math-text">${mathHtml(mistake.defect)}</div></section></article>`).join("")) : ""}${commentBox("edge", edge.id, "justification")}</div>`;
 }
 
 function detail(title, content, priority = "") { return `<section class="detail-block ${priority}"><h3>${escapeHtml(title)}</h3>${content}</section>`; }
@@ -362,7 +364,7 @@ function loadSource(source, name) {
   const key = String(Date.now()) + "-" + String(Math.random()).slice(2);
   let stored = null;
   try { stored = JSON.parse(localStorage.getItem(sourceKey(source))); } catch { /* Local storage is optional. */ }
-  const verification = report.graph && !report.errors.length ? validReviewState(report.graph, report.graph.review_state ?? stored ?? {}) : { nodes: new Map(), paths: new Map() };
+  const verification = report.graph && !report.errors.length ? validReviewState(report.graph, report.graph.review_state ?? stored ?? {}) : { nodes: new Map(), edges: new Map(), paths: new Map() };
   const doc = { key, name, source, originalGraph: report.graph ? structuredClone(report.graph) : null, report, verification, comments: [], reviewed: new Set(), selection: null, view: { x: 0, y: 42, scale: 1 }, goalId: null };
   state.documents.push(doc);
   activateDocument(key);
@@ -571,6 +573,11 @@ root.addEventListener("input", (event) => {
 });
 
 root.addEventListener("change", (event) => {
+  if (event.target.matches("[data-verify-edge]")) {
+    const doc = activeDoc(), id = event.target.dataset.verifyEdge;
+    event.target.checked ? doc.verification.edges.set(id, edgeFingerprint(doc.report.graph, id)) : doc.verification.edges.delete(id);
+    saveVerification(doc); renderWorkspace(); renderInspector(); return;
+  }
   if (event.target.matches("[data-verify-node]")) {
     const doc = activeDoc(), id = event.target.dataset.verifyNode;
     event.target.checked ? doc.verification.nodes.set(id, nodeFingerprint(doc.report.graph, id)) : doc.verification.nodes.delete(id);
