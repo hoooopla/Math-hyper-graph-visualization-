@@ -36,7 +36,7 @@ test("discovery prompt screens batches, records coverage and examines outliers w
   assert.match(doc, /do not claim/);
   assert.match(doc, /not student homework auditing/);
   assert.match(doc, /do not assign grades, correctness labels/);
-  assert.match(doc, /do not automatically add/);
+  assert.match(doc, /does not automatically add|do not automatically add/);
   assert.match(doc, /never invent/);
 });
 
@@ -63,7 +63,7 @@ test("onboarding keeps discovery opt-in and outside canonical graph schema", asy
   const manifest = JSON.parse(await read("templates/instructor-workspace/manifest.json"));
   const readme = await read("README.md");
   assert.match(publicAgent, /only if explicitly opted in/);
-  assert.match(instructorAgent, /opted in/);
+  assert.match(instructorAgent, /opt-in|opts in/);
   assert.match(starter, /OPTIONAL PRE-AUDIT DISCOVERY/);
   assert.match(starter, /Without explicit opt-in, skip this stage/);
   assert.match(readme, /without\s+grading or judging any student's answer/);
