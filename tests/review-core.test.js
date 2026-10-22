@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { parseGraphYaml } from "../src/graph-core.js";
 import { compareGraphs, serializeYaml, changeRequest } from "../src/review-core.js";
+import { sampleGraphYaml } from "../src/sampleGraph.js";
 
 test("export preserves the full uploaded graph, including nested mathematical content", async () => {
-  const source = await readFile(new URL("../../review-input/graph-3.yaml", import.meta.url), "utf8");
-  const graph = parseGraphYaml(source).graph;
+  const graph = parseGraphYaml(sampleGraphYaml).graph;
+  graph.edges[0].justification += "\nExtra line with colon: and # symbol.";
   const exported = serializeYaml(graph);
   assert.deepEqual(parseGraphYaml(exported).graph, graph);
 });
