@@ -125,7 +125,7 @@ async function showWorkflow() {
     workflowMessage.textContent = "Use this prompt in your own GPT Work conversation.";
     workflowLoaded = true;
   } catch {
-    workflowMessage.textContent = "Could not load the setup prompt. Open prompts/start-with-gpt-work.md in the public GitHub repository.";
+    workflowMessage.textContent = "Could not load the setup prompt. Open workflow/start-with-gpt-work.md in the public GitHub repository.";
   }
 }
 
@@ -376,13 +376,24 @@ function problemEditor(graph) {
     ? editHint() + editable("problem", "problem", "title", "Title", problem.title, false)
       + editable("problem", "problem", "statement", "Problem statement", problem.statement)
     : readingSection("Problem statement", renderedMath(problem.statement), "reading-hero");
-  const source = problem.source ? readingSection("Source", renderedMath(formatValue(problem.source))) : "";
+  const source = problem.source ? readingSection("Source",
+    typeof problem.source === "object" && problem.source !== null
+      ? Object.entries(problem.source).map(([key, value]) =>
+          `<div class="reading-meta-row"><strong>${escapeHtml(key)}</strong><span class="math-text">${mathHtml(formatValue(value))}</span></div>`).join("")
+      : renderedMath(problem.source)) : "";
+  const extras = Object.entries(problem)
+    .filter(([key]) => !["id", "title", "statement", "source", "ambiguities"].includes(key));
+  const metadata = `<details class="reading-disclosure"><summary>Problem metadata <span>schema ${escapeHtml(graph.schema_version ?? "unknown")}</span></summary>
+    ${extras.map(([key, value]) => `<div class="reading-meta-row"><strong>${escapeHtml(key)}</strong><span class="math-text">${mathHtml(formatValue(value))}</span></div>`).join("")}
+    <div class="reading-meta-row"><strong>Problem ID</strong><span>${escapeHtml(problem.id ?? "—")}</span></div>
+    <div class="reading-meta-row"><strong>Schema</strong><span>${escapeHtml(graph.schema_version ?? "unknown")}</span></div>
+  </details>`;
   const ambiguities = problem.ambiguities?.length
     ? readingSection("Open interpretations", `<ul class="reading-bullets">${problem.ambiguities.map((a) => `<li class="math-text">${mathHtml(a)}</li>`).join("")}</ul>`)
     : "";
   return `<div class="inspector-content reading-inspector">
     ${inspectorHeader("Problem", problem.title || "Problem statement", "problem", { commentType: "problem" })}
-    <div class="reading-body">${body}${ambiguities}${source}${commentBox("problem", "problem", "statement")}</div>
+    <div class="reading-body">${body}${ambiguities}${source}${metadata}${commentBox("problem", "problem", "statement")}</div>
   </div>`;
 }
 
@@ -437,12 +448,12 @@ function validationInspectorHtml() {
   </div>`;
 }
 
-function mistakeCards(mistakes) {
+function mistakeCards(mistakes, allowNavigation = true) {
   return mistakes.map((mistake, index) => `<article class="reading-mistake-case">
     <header class="reading-mistake-top">
       <span class="reading-mistake-number">${String(index + 1).padStart(2, "0")}</span>
       <span class="reading-mistake-category">${escapeHtml((mistake.category ?? "common mistake").replaceAll("_", " "))}</span>
-      <button type="button" class="reading-reference-link" data-select-type="mistake" data-select-id="${escapeAttribute(mistake.id)}">Inspect ↗</button>
+      ${allowNavigation ? `<button type="button" class="reading-reference-link" data-select-type="mistake" data-select-id="${escapeAttribute(mistake.id)}">Inspect ↗</button>` : ""}
     </header>
     <div class="reading-false-move">
       <span class="reading-mini-label">Incorrect move</span>
@@ -481,7 +492,7 @@ function mistakeInspector(graph, id) {
     ? editHint() + editable("mistakes", id, "category", "Category", mistake.category, false)
       + editable("mistakes", id, "pattern", "Incorrect argument or pattern", mistake.pattern)
       + editable("mistakes", id, "defect", "Mathematical defect", mistake.defect)
-    : mistakeCards([mistake]);
+    : mistakeCards([mistake], false);
   return `<div class="inspector-content reading-inspector">
     ${inspectorHeader("Common mistake", "Why this argument fails", id, { commentType: "mistake" })}
     <div class="reading-body">
