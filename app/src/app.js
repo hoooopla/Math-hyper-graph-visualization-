@@ -4,6 +4,7 @@ import { renderMath } from "./math-render.js";
 import { contextCardsHtml, contextInspectorHtml } from "./context-ui.js";
 import { serializeYaml, compareGraphs, changeRequest } from "./review-core.js";
 import { edgeFingerprint, nodeFingerprint, pathFingerprint, pathKey, reviewState, sourceKey, validReviewState } from "./verification-core.js";
+import { inferenceAuditModel, pathAuditModel } from "./inspector-core.js";
 const root = document.querySelector("#root");
 const TYPE_LABELS = { premise: "Premises", milestone: "Milestones", goal: "Goals" };
 const state = {
@@ -306,6 +307,10 @@ function renderInspector() {
     inspector.innerHTML = close + `<div class="inspector-empty"><p>Select a reference card, assertion or inference to inspect it.</p></div>`;
     return;
   }
+  if (selection?.type === "path" && state.activePath !== null) {
+    inspector.innerHTML = close + pathInspector(graph, state.activePath);
+    return;
+  }
   const api = { mathHtml, escapeHtml, detail };
   if (selection.type === "context") {
     inspector.innerHTML = close + (selection.id === "problem" ? problemEditor(graph) : contextInspectorHtml(graph, selection.id, api));
@@ -528,24 +533,53 @@ function nodeInspector(graph, node) {
   </div>`;
 }
 
+function auditChecklist(scope = "inference") {
+  const checks = scope === "path"
+    ? ["Do all premises and intermediate inferences jointly reach the goal?",
+       "Does every theorem apply where it is used?",
+       "Are quantifiers, exceptional cases, and local assumptions consistent?",
+       "Have the documented pitfalls been considered?"]
+    : ["Are every required source assertion and its local assumptions available?",
+       "Does the stated method actually establish the conclusion?",
+       "Are all required hypotheses of each cited theorem satisfied?",
+       "Are quantifiers, exceptional cases, and proof obligations addressed?",
+       "Could any documented common mistake invalidate this step?"];
+  return `<details class="reading-disclosure reading-audit-guide">
+    <summary>Verification questions <span>${checks.length} checks</span></summary>
+    <ol class="reading-checklist">${checks.map((entry) => `<li>${escapeHtml(entry)}</li>`).join("")}</ol>
+    <p class="reading-hint">These prompts assist a mathematical review; checking a box marks your own review, not an automatic correctness judgment or student grade.</p>
+  </details>`;
+}
+
 function edgeInspector(graph, edge) {
-  const sources = edge.from.map((id) => graph.nodes.find((node) => node.id === id)).filter(Boolean);
-  const target = graph.nodes.find((node) => node.id === edge.to);
-  const theorems = (edge.uses ?? []).map((id) => graph.theorems.find((theorem) => theorem.id === id)).filter(Boolean);
-  const mistakes = getRelatedMistakes(graph, edge.id);
+  const audit = inferenceAuditModel(graph, edge);
   const verified = activeDoc().verification.edges.get(edge.id) === edgeFingerprint(graph, edge.id);
   const editing = state.inspectorMode === "edit";
 
   const flow = `<section class="reading-section reading-inference-flow" aria-label="Mathematical inference">
-    <div class="reading-flow-label">${sources.length > 1 ? `All ${sources.length} assumptions are required (AND)` : "Required assumption"}</div>
-    <div class="reading-source-stack">${sources.map((node, index) => statementLink(node, sources.length > 1 ? `Assumption ${index + 1}` : "Source")).join("")}</div>
-    <div class="reading-flow-arrow" aria-label="Implies"><span>↓</span><small>Therefore</small></div>
-    ${target ? statementLink(target, "Conclusion") : `<span class="reading-hint">Conclusion unavailable.</span>`}
+    <h3>Required assumptions</h3>
+    <div class="reading-flow-label">${audit.sources.length > 1 ? `All ${audit.sources.length} assertions are jointly required (AND)` : "The source assertion is required"}</div>
+    <div class="reading-source-stack">
+      ${audit.sources.map((node, index) => statementLink(node, audit.sources.length > 1 ? `Assumption ${index + 1}` : "Source")).join("")}
+    </div>
+    <div class="reading-inference-transition" aria-label="Inference method between assumptions and conclusion">
+      <span class="reading-flow-arrow" aria-hidden="true">↓</span>
+      <div class="reading-method-card">
+        <span class="reading-mini-label">Inference method</span>
+        <div class="reading-method-name math-text">${mathHtml(audit.method)}</div>
+      </div>
+      <span class="reading-flow-arrow" aria-hidden="true">↓</span>
+    </div>
+    <h3>Conclusion</h3>
+    ${audit.target ? statementLink(audit.target, "Target assertion") : `<span class="reading-hint">Conclusion unavailable.</span>`}
   </section>`;
-  const reasoning = readingSection("Why this follows",
-    renderedMath(edge.justification) +
-    (edge.obligations?.length ? `<div class="reading-obligations"><span class="reading-mini-label">Proof obligations</span>${renderedMath(formatValue(edge.obligations))}</div>` : ""),
+
+  const reasoning = readingSection("Detailed justification",
+    renderedMath(audit.justification) +
+    (audit.obligations?.length ? `<div class="reading-obligations"><span class="reading-mini-label">Proof obligations</span>
+      <ul class="reading-bullets">${audit.obligations.map((requirement) => `<li class="math-text">${mathHtml(requirement)}</li>`).join("")}</ul></div>` : ""),
     "reading-reasoning");
+
   const edits = editHint()
     + editable("edges", edge.id, "method", "Inference method", edge.method, false)
     + editable("edges", edge.id, "from", "Sources · one node ID per line", edge.from)
@@ -554,17 +588,68 @@ function edgeInspector(graph, edge) {
     + editable("edges", edge.id, "uses", "Theorems · one ID per line", edge.uses ?? [])
     + (edge.obligations ? editable("edges", edge.id, "obligations", "Obligations · one per line", edge.obligations) : "");
 
-  return `<div class="inspector-content reading-inspector">
-    ${inspectorHeader("Inference", edge.method || "Inference step", edge.id, { verification: "edge", verified, commentType: "edge" })}
+  const theoremRefs = audit.theorems.length ? readingSection("Theorem dependencies",
+    `<p class="reading-hint">Verify that each listed hypothesis holds in this inference.</p>` +
+    audit.theorems.map((theorem) => `<article class="reading-theorem-reference">
+      <button type="button" class="reading-theorem-link" data-select-type="theorem" data-select-id="${escapeAttribute(theorem.id)}">
+        <span>${escapeHtml(theorem.id)} ↗</span>
+        <div class="math-text">${mathHtml(theorem.statement)}</div>
+      </button>
+      <div class="reading-hypotheses">
+        <strong>Required hypotheses</strong>
+        ${theorem.required_hypotheses?.length
+          ? `<ol class="reading-bullets">${theorem.required_hypotheses.map((h) => `<li class="math-text">${mathHtml(h)}</li>`).join("")}</ol>`
+          : `<p class="reading-hint">Not specified; review theorem assumptions before verifying.</p>`}
+      </div>
+    </article>`).join(""), "reading-references") : "";
+
+  return `<div class="inspector-content reading-inspector reading-edge-inspector">
+    ${inspectorHeader("Inference", "Review inference", edge.id, { verification: "edge", verified, commentType: "edge" })}
     <div class="reading-body">
       ${editing ? edits : flow + reasoning}
-      ${mistakesSection(mistakes)}
-      ${edge.scope ? readingSection("Scope / local assumptions", renderedMath(formatValue(edge.scope)), "reading-scope") : ""}
-      ${theorems.length ? readingSection("Theorems used",
-        theorems.map((theorem) => `<button type="button" class="reading-theorem-link" data-select-type="theorem" data-select-id="${escapeAttribute(theorem.id)}"><span>${escapeHtml(theorem.id)} ↗</span><div class="math-text">${mathHtml(theorem.statement)}</div></button>`).join(""),
-        "reading-references") : ""}
+      ${mistakesSection(audit.mistakes)}
+      ${audit.scope ? readingSection("Scope / local assumptions", renderedMath(formatValue(audit.scope)), "reading-scope") : ""}
+      ${theoremRefs}
       ${editing ? `<details class="reading-disclosure"><summary>Preview mathematical inference</summary>${flow}${reasoning}</details>` : ""}
+      ${auditChecklist()}
       ${commentBox("edge", edge.id, "justification")}
+    </div>
+  </div>`;
+}
+
+function pathInspector(graph, index) {
+  const goal = currentGoal(graph);
+  const path = goal && enumerateProofPaths(graph, goal.id)[index];
+  if (!path) return `<div class="inspector-empty">This proof path is unavailable.</div>`;
+  const audit = pathAuditModel(graph, path, goal.id);
+  const verified = pathVerified(activeDoc(), goal.id, path);
+  const status = audit.orderedEdges.filter((edge) =>
+    activeDoc().verification.edges.get(edge.id) === edgeFingerprint(graph, edge.id)).length;
+  return `<div class="inspector-content reading-inspector reading-path-inspector">
+    <header class="reading-header">
+      <div class="reading-header-label">Complete solution path <span class="reading-header-id">#${index + 1}</span></div>
+      <h2>Proof path ${index + 1}</h2>
+      <div class="reading-actions">
+        <label class="reading-verify"><input type="checkbox" data-verify-path="${index}" ${verified ? "checked" : ""}>
+          <span>${verified ? "Verified path" : "Verify path"}</span></label>
+        <span class="reading-path-progress">${status}/${audit.orderedEdges.length} inferences marked verified</span>
+      </div>
+    </header>
+    <div class="reading-body">
+      ${readingSection("Goal", audit.goal ? renderedMath(audit.goal.assertion ?? audit.goal.claim) : "", "reading-hero")}
+      ${readingSection("Premises", audit.premises.length
+        ? audit.premises.map((node, i) => statementLink(node, `Premise ${i + 1}`)).join("")
+        : `<p class="reading-hint">No premise assertions recorded for this path.</p>`)}
+      ${readingSection("Inferences · premise to goal", audit.orderedEdges.map((edge, i) => {
+        const mark = activeDoc().verification.edges.get(edge.id) === edgeFingerprint(graph, edge.id);
+        return `<button type="button" class="reading-path-step" data-select-type="edge" data-select-id="${escapeAttribute(edge.id)}">
+          <span class="reading-path-step-index">${String(i + 1).padStart(2, "0")}</span>
+          <span><strong class="math-text">${mathHtml(edge.method)}</strong><small>${escapeHtml(edge.id)} · ${mark ? "Marked verified" : "Not yet verified"}</small></span>
+          <span aria-hidden="true">↗</span>
+        </button>`;
+      }).join(""))}
+      ${mistakesSection(audit.mistakes)}
+      ${auditChecklist("path")}
     </div>
   </div>`;
 }
@@ -800,7 +885,17 @@ root.addEventListener("click", async (event) => {
     render();
   }
   const path = event.target.closest("[data-path]");
-  if (path) { const index = Number(path.dataset.path); state.activePath = state.activePath === index ? null : index; render(); }
+  if (path) {
+    const index = Number(path.dataset.path);
+    state.activePath = state.activePath === index ? null : index;
+    state.selection = state.activePath === null ? { type: "context", id: "problem" } : { type: "path", id: String(index) };
+    state.inspectorMode = "read";
+    state.commentComposerOpen = false;
+    inspector.scrollTop = 0;
+    if (window.innerWidth <= 760 && state.activePath !== null) state.mobilePanel = "inspector";
+    render();
+    return;
+  }
   const mobile = event.target.closest("[data-mobile]")?.dataset.mobile;
   if (mobile) { state.mobilePanel = mobile === "close" ? null : mobile; render(); }
   const copy = event.target.closest("[data-copy]");
@@ -844,7 +939,7 @@ root.addEventListener("change", (event) => {
     if (!path) return;
     const key = pathKey(goal.id, path);
     event.target.checked ? doc.verification.paths.set(key, pathFingerprint(graph, path)) : doc.verification.paths.delete(key);
-    saveVerification(doc); renderSidebar(); return;
+    saveVerification(doc); renderSidebar(); renderInspector(); return;
   }
   if (event.target.matches("[data-edit-field]")) { updateField(event.target); return; }
   if (event.target.matches("[data-compare]")) {
@@ -856,6 +951,7 @@ root.addEventListener("change", (event) => {
   if (event.target.matches("[data-goal]")) {
     state.goalId = event.target.value;
     state.activePath = null;
+    if (state.selection?.type === "path") state.selection = { type: "node", id: state.goalId };
     render();
     return;
   }
