@@ -24,6 +24,7 @@ const state = {
   exportOpen: false,
   showIds: localStorage.getItem("proof-atlas-show-ids") === "true",
   inspectorMode: "read",
+  inlineEdit: null,
   commentComposerOpen: false,
 };
 
@@ -334,22 +335,59 @@ function renderInspector() {
   inspector.innerHTML = close + (selection.type === "node" ? nodeInspector(graph, item) : edgeInspector(graph, item));
 }
 
-function editable(kind, id, field, label, value, multiline = true) {
+function editable(kind, id, field, label, value, multiline = true, manual = false) {
   const text = Array.isArray(value) ? value.join("\n") : String(value ?? "");
-  const attr = `data-edit-kind="${escapeAttribute(kind)}" data-edit-id="${escapeAttribute(id)}" data-edit-field="${escapeAttribute(field)}"`;
-  return `<label class="editable-field"><span>${escapeHtml(label)}</span>${multiline ? `<textarea rows="${Math.max(3, Math.min(7, text.split("\n").length + 1))}" ${attr}>${escapeHtml(text)}</textarea>` : `<input value="${escapeAttribute(text)}" ${attr}>`}<div class="edit-preview math-text">${mathHtml(text) || "<em>Empty</em>"}</div></label>`;
+  const attr = `data-edit-kind="${escapeAttribute(kind)}" data-edit-id="${escapeAttribute(id)}" data-edit-field="${escapeAttribute(field)}"${manual ? " data-inline-field" : ""}`;
+  return `<label class="editable-field"><span>${escapeHtml(label)}</span>${multiline ? `<textarea rows="${Math.max(3, Math.min(9, text.split("\n").length + 2))}" ${attr}>${escapeHtml(text)}</textarea>` : `<input value="${escapeAttribute(text)}" ${attr}>`}<div class="edit-preview math-text">${mathHtml(text) || "<em>Empty</em>"}</div></label>`;
+}
+
+function fieldKey(kind, id, field) {
+  return JSON.stringify([kind, id, field]);
+}
+
+function inlineEditor(kind, id, field, label, value, multiline = true) {
+  return `<div class="inline-editor" role="group" aria-label="Edit ${escapeAttribute(label)}">
+    ${editable(kind, id, field, label, value, multiline, true)}
+    <p class="inline-error" role="alert" hidden></p>
+    <div class="inline-editor-actions">
+      <button type="button" data-action="cancel-inline-edit">Cancel</button>
+      <button type="button" class="inline-save" data-action="save-inline-edit">Apply change</button>
+    </div>
+  </div>`;
+}
+
+function editableMath(kind, id, field, label, value, displayHtml = renderedMath(value), multiline = true) {
+  const key = fieldKey(kind, id, field);
+  if (state.inlineEdit === key) return inlineEditor(kind, id, field, label, value, multiline);
+  return `<div class="reading-field">
+    <div class="reading-field-content">${displayHtml}</div>
+    <button type="button" class="reading-inline-edit" data-action="edit-inline" data-inline-key="${escapeAttribute(key)}" aria-label="Edit ${escapeAttribute(label)}">Edit</button>
+  </div>`;
+}
+
+function mathFieldSection(kind, id, field, label, value, cssClass = "", displayHtml = renderedMath(value)) {
+  return readingSection(label, editableMath(kind, id, field, label, value, displayHtml), cssClass);
+}
+
+function advancedFields(content) {
+  if (state.inspectorMode !== "edit") return "";
+  return `<section class="inspector-technical" aria-label="Advanced data fields">
+    <h3>Technical fields</h3>
+    <p class="reading-hint">Edit IDs and structured fields only when necessary. Mathematics above remains visible for comparison.</p>
+    ${content}
+  </section>`;
 }
 
 function inspectorHeader(kind, title, id, { verification, verified = false, commentType, canEdit = true } = {}) {
-  const editing = state.inspectorMode === "edit";
+  const advanced = state.inspectorMode === "edit";
   const comments = activeDoc()?.comments?.filter((item) => item.type === commentType && item.id === id).length ?? 0;
   return `<header class="reading-header">
     <div class="reading-header-label">${escapeHtml(kind)} <span class="reading-header-id">${copyId(id)}</span></div>
     <h2>${mathHtml(title)}</h2>
     <div class="reading-actions">
-      ${verification ? `<label class="reading-verify" title="Mark this ${escapeAttribute(kind.toLowerCase())} as mathematically reviewed"><input type="checkbox" data-verify-${verification}="${escapeAttribute(id)}" ${verified ? "checked" : ""}><span>${verified ? "Verified" : "Verify"}</span></label>` : ""}
-      ${canEdit ? `<button type="button" class="reading-action ${editing ? "active" : ""}" data-action="inspector-mode" data-mode="${editing ? "read" : "edit"}" aria-pressed="${editing}">${editing ? "Done editing" : "Edit"}</button>` : ""}
+      ${verification ? `<label class="reading-verify" title="Manual mathematical verification, not automated proof"><input type="checkbox" data-verify-${verification}="${escapeAttribute(id)}" ${verified ? "checked" : ""}><span>${verified ? "Verified" : "Mark verified"}</span></label>` : ""}
       ${commentType ? `<button type="button" class="reading-action ${state.commentComposerOpen ? "active" : ""}" data-action="inspector-comment" aria-expanded="${state.commentComposerOpen}">Comment${comments ? ` <span class="comment-count">${comments}</span>` : ""}</button>` : ""}
+      ${canEdit ? `<button type="button" class="reading-action technical-toggle ${advanced ? "active" : ""}" data-action="inspector-mode" data-mode="${advanced ? "read" : "edit"}" aria-expanded="${advanced}">${advanced ? "Hide fields" : "Technical fields"}</button>` : ""}
     </div>
   </header>`;
 }
@@ -367,20 +405,12 @@ function commentBox(type, id, field = "general") {
   if (!comments.length && !state.commentComposerOpen) return "";
   return `<section class="comment-block" id="inspector-comments"><h3>Review comments ${comments.length ? `<span class="comment-count">${comments.length}</span>` : ""}</h3>
     ${comments.map((item) => `<div class="comment-item"><strong>${escapeHtml(item.field)}</strong><p>${escapeHtml(item.text)}</p><button data-remove-comment="${escapeAttribute(item.key)}" aria-label="Remove comment">×</button></div>`).join("")}
-    ${state.commentComposerOpen ? `<div class="comment-composer"><label>Comment on<select data-comment-field>${["general", "claim", "method", "justification", "statement", "pattern", "defect", "required_hypotheses", "obligations"].map((option) => `<option ${option === field ? "selected" : ""}>${option}</option>`).join("")}</select></label><textarea data-comment-text placeholder="What should GPT Work check or change?"></textarea><button class="header-action" data-add-comment="${escapeAttribute(type)}:${escapeAttribute(id)}">Add comment</button></div>` : ""}
+    ${state.commentComposerOpen ? `<div class="comment-composer"><label>Comment on<select data-comment-field>${["general", "assertion", "method", "justification", "statement", "pattern", "defect", "required_hypotheses", "obligations"].map((option) => `<option ${option === field ? "selected" : ""}>${option}</option>`).join("")}</select></label><textarea data-comment-text placeholder="What should GPT Work check or change?"></textarea><button class="header-action" data-add-comment="${escapeAttribute(type)}:${escapeAttribute(id)}">Add comment</button></div>` : ""}
   </section>`;
-}
-
-function editHint() {
-  return `<p class="inspector-edit-hint">You are editing this local draft. Each changed field updates the graph; review the differences before exporting.</p>`;
 }
 
 function problemEditor(graph) {
   const problem = graph.problem ?? {};
-  const body = state.inspectorMode === "edit"
-    ? editHint() + editable("problem", "problem", "title", "Title", problem.title, false)
-      + editable("problem", "problem", "statement", "Problem statement", problem.statement)
-    : readingSection("Problem statement", renderedMath(problem.statement), "reading-hero");
   const source = problem.source ? readingSection("Source",
     typeof problem.source === "object" && problem.source !== null
       ? Object.entries(problem.source).map(([key, value]) =>
@@ -398,7 +428,12 @@ function problemEditor(graph) {
     : "";
   return `<div class="inspector-content reading-inspector">
     ${inspectorHeader("Problem", problem.title || "Problem statement", "problem", { commentType: "problem" })}
-    <div class="reading-body">${body}${ambiguities}${source}${metadata}${commentBox("problem", "problem", "statement")}</div>
+    <div class="reading-body">
+      ${mathFieldSection("problem", "problem", "statement", "Problem statement", problem.statement, "reading-hero")}
+      ${ambiguities}${source}${metadata}
+      ${advancedFields(editable("problem", "problem", "title", "Title", problem.title, false))}
+      ${commentBox("problem", "problem", "statement")}
+    </div>
   </div>`;
 }
 
@@ -406,19 +441,18 @@ function theoremEditor(graph, id) {
   const item = graph.theorems?.find((entry) => entry.id === id);
   if (!item) return `<div class="inspector-empty">Theorem unavailable.</div>`;
   const usedBy = graph.edges.filter((edge) => (edge.uses ?? []).includes(id));
-  const body = state.inspectorMode === "edit"
-    ? editHint() + editable("theorems", id, "statement", "Theorem statement", item.statement)
-      + editable("theorems", id, "required_hypotheses", "Required hypotheses · one per line", item.required_hypotheses ?? [])
-      + editable("theorems", id, "source", "Source", item.source)
-    : readingSection("Theorem statement", renderedMath(item.statement), "reading-hero")
-      + readingSection("Required hypotheses", item.required_hypotheses?.length
-        ? `<ol class="reading-bullets">${item.required_hypotheses.map((h) => `<li class="math-text">${mathHtml(h)}</li>`).join("")}</ol>`
-        : `<p class="reading-hint">No hypotheses specified in this graph.</p>`)
-      + (item.source ? readingSection("Reference", `<p class="reading-prose">${escapeHtml(formatValue(item.source))}</p>`) : "");
+  const hypotheses = item.required_hypotheses?.length
+    ? `<ol class="reading-bullets">${item.required_hypotheses.map((h) => `<li class="math-text">${mathHtml(h)}</li>`).join("")}</ol>`
+    : `<p class="reading-hint">No hypotheses recorded. Confirm the theorem's actual conditions before citing it.</p>`;
   return `<div class="inspector-content reading-inspector">
     ${inspectorHeader("Theorem", "Theorem reference", id, { commentType: "theorem" })}
-    <div class="reading-body">${body}
+    <div class="reading-body">
+      ${mathFieldSection("theorems", id, "statement", "Theorem statement", item.statement, "reading-hero")}
+      ${mathFieldSection("theorems", id, "required_hypotheses", "Required hypotheses to verify",
+        item.required_hypotheses ?? [], "reading-proof-checks", hypotheses)}
+      ${item.source ? readingSection("Reference", `<p class="reading-prose">${escapeHtml(formatValue(item.source))}</p>`) : ""}
       ${usedBy.length ? `<details class="reading-disclosure"><summary>Used by inferences <span>${usedBy.length}</span></summary>${linkList("", usedBy, "edge")}</details>` : ""}
+      ${advancedFields(editable("theorems", id, "source", "Reference source", item.source))}
       ${commentBox("theorem", id, "statement")}
     </div>
   </div>`;
@@ -458,26 +492,27 @@ function mistakeCards(mistakes, allowNavigation = true) {
     <header class="reading-mistake-top">
       <span class="reading-mistake-number">${String(index + 1).padStart(2, "0")}</span>
       <span class="reading-mistake-category">${escapeHtml((mistake.category ?? "common mistake").replaceAll("_", " "))}</span>
-      ${allowNavigation ? `<button type="button" class="reading-reference-link" data-select-type="mistake" data-select-id="${escapeAttribute(mistake.id)}">Inspect ↗</button>` : ""}
+      ${allowNavigation ? `<button type="button" class="reading-reference-link" data-select-type="mistake" data-select-id="${escapeAttribute(mistake.id)}">Open ↗</button>` : ""}
     </header>
     <div class="reading-false-move">
-      <span class="reading-mini-label">Incorrect move</span>
-      ${renderedMath(mistake.pattern)}
+      <span class="reading-mini-label">Incorrect argument</span>
+      ${editableMath("mistakes", mistake.id, "pattern", "Incorrect argument", mistake.pattern)}
     </div>
     <div class="reading-diagnosis">
       <span class="reading-mini-label">Why it fails</span>
-      <div class="reading-prose math-text">${mathHtml(mistake.defect)}</div>
+      ${editableMath("mistakes", mistake.id, "defect", "Why it fails", mistake.defect)}
     </div>
   </article>`).join("");
 }
 
-function mistakesSection(mistakes) {
+function mistakesSection(mistakes, label = "Common mistakes") {
+  if (!mistakes.length) return `<div class="reading-no-mistakes">No common mistakes are documented for this selection.</div>`;
   return `<section class="reading-section reading-pitfalls" aria-label="Common mistakes">
     <div class="reading-section-heading">
-      <h3>Common mistakes</h3>
-      <span class="reading-count ${mistakes.length ? "has-mistakes" : ""}">${mistakes.length} ${mistakes.length === 1 ? "pitfall" : "pitfalls"}</span>
+      <h3>${escapeHtml(label)}</h3>
+      <span class="reading-count has-mistakes">${mistakes.length} ${mistakes.length === 1 ? "case" : "cases"}</span>
     </div>
-    ${mistakes.length ? mistakeCards(mistakes) : `<p class="reading-hint">No common mistakes have been recorded for this step.</p>`}
+    ${mistakeCards(mistakes)}
   </section>`;
 }
 
@@ -493,16 +528,12 @@ function mistakeInspector(graph, id) {
   if (!mistake) return `<div class="inspector-empty"><p>Mistake reference not found.</p></div>`;
   const related = (mistake.related_edges ?? [])
     .map((edgeId) => graph.edges.find((edge) => edge.id === edgeId)).filter(Boolean);
-  const body = state.inspectorMode === "edit"
-    ? editHint() + editable("mistakes", id, "category", "Category", mistake.category, false)
-      + editable("mistakes", id, "pattern", "Incorrect argument or pattern", mistake.pattern)
-      + editable("mistakes", id, "defect", "Mathematical defect", mistake.defect)
-    : mistakeCards([mistake], false);
   return `<div class="inspector-content reading-inspector">
-    ${inspectorHeader("Common mistake", "Why this argument fails", id, { commentType: "mistake" })}
+    ${inspectorHeader("Common mistake", "Mathematical defect", id, { commentType: "mistake" })}
     <div class="reading-body">
-      ${body}
-      ${related.length ? `<details class="reading-disclosure"><summary>Related valid inferences <span>${related.length}</span></summary>${linkList("", related, "edge")}</details>` : ""}
+      ${mistakeCards([mistake], false)}
+      ${related.length ? `<details class="reading-disclosure"><summary>Related inferences <span>${related.length}</span></summary>${linkList("", related, "edge")}</details>` : ""}
+      ${advancedFields(editable("mistakes", id, "category", "Mistake category", mistake.category, false))}
       ${commentBox("mistake", id, "pattern")}
     </div>
   </div>`;
@@ -511,20 +542,17 @@ function mistakeInspector(graph, id) {
 function nodeInspector(graph, node) {
   const incoming = graph.edges.filter((edge) => edge.to === node.id);
   const outgoing = graph.edges.filter((edge) => edge.from.includes(node.id));
-  const affected = [...new Map([...incoming, ...outgoing].flatMap((edge) =>
+  const adjacentMistakes = [...new Map([...incoming, ...outgoing].flatMap((edge) =>
     getRelatedMistakes(graph, edge.id)).map((mistake) => [mistake.id, mistake])).values()];
   const verified = activeDoc().verification.nodes.get(node.id) === nodeFingerprint(graph, node.id);
-  const body = state.inspectorMode === "edit"
-    ? editHint() + editable("nodes", node.id, "assertion", "Mathematical assertion", node.assertion ?? node.claim)
-    : readingSection("Mathematical assertion", renderedMath(node.assertion ?? node.claim), "reading-hero");
   return `<div class="inspector-content reading-inspector">
-    ${inspectorHeader(node.type, "Assertion", node.id, { verification: "node", verified, commentType: "node" })}
+    ${inspectorHeader(node.type, "Assertion", node.id, { verification: "node", verified, commentType: "node", canEdit: false })}
     <div class="reading-body">
-      ${body}
-      ${node.scope ? readingSection("Scope / local assumptions", renderedMath(formatValue(node.scope)), "reading-scope") : ""}
-      ${mistakesSection(affected)}
+      ${mathFieldSection("nodes", node.id, "assertion", "Mathematical assertion to verify", node.assertion ?? node.claim, "reading-hero")}
+      ${node.scope ? readingSection("Local assumptions / scope to check", renderedMath(formatValue(node.scope)), "reading-proof-checks") : ""}
+      ${mistakesSection(adjacentMistakes, "Mistakes in connected inferences")}
       <details class="reading-disclosure">
-        <summary>Connected inferences <span>${incoming.length} incoming · ${outgoing.length} outgoing</span></summary>
+        <summary>Proof dependencies <span>${incoming.length} incoming · ${outgoing.length} outgoing</span></summary>
         ${linkList("Leading to this assertion", incoming, "edge")}
         ${linkList("Using this assertion", outgoing, "edge")}
       </details>
@@ -535,26 +563,36 @@ function nodeInspector(graph, node) {
 
 function auditChecklist(scope = "inference") {
   const checks = scope === "path"
-    ? ["Do all premises and intermediate inferences jointly reach the goal?",
-       "Does every theorem apply where it is used?",
-       "Are quantifiers, exceptional cases, and local assumptions consistent?",
-       "Have the documented pitfalls been considered?"]
-    : ["Are every required source assertion and its local assumptions available?",
-       "Does the stated method actually establish the conclusion?",
-       "Are all required hypotheses of each cited theorem satisfied?",
-       "Are quantifiers, exceptional cases, and proof obligations addressed?",
-       "Could any documented common mistake invalidate this step?"];
+    ? ["Do the premises and inference steps jointly establish the target?",
+       "Have theorem conditions, exceptional cases and scopes been justified?"]
+    : ["Does the stated method prove exactly this conclusion from all sources?",
+       "Are the theorem conditions, scope and edge-specific obligations addressed?"];
   return `<details class="reading-disclosure reading-audit-guide">
-    <summary>Verification questions <span>${checks.length} checks</span></summary>
+    <summary>Optional review guide <span>${checks.length} prompts</span></summary>
     <ol class="reading-checklist">${checks.map((entry) => `<li>${escapeHtml(entry)}</li>`).join("")}</ol>
-    <p class="reading-hint">These prompts assist a mathematical review; checking a box marks your own review, not an automatic correctness judgment or student grade.</p>
+    <p class="reading-hint">Generic prompts only. The actual mathematical obligations and theorem hypotheses above are authoritative for this graph. The Verify control is a manual review mark, not an automatic proof or grade.</p>
   </details>`;
+}
+
+function theoremRequirements(theorems) {
+  if (!theorems.length) return "";
+  return readingSection("Theorem applicability — verify each hypothesis",
+    theorems.map((theorem) => `<div class="reading-theorem-reference">
+      <button type="button" class="reading-theorem-link" data-select-type="theorem" data-select-id="${escapeAttribute(theorem.id)}">
+        <span>${escapeHtml(theorem.id)} ↗</span>
+        <div class="math-text">${mathHtml(theorem.statement)}</div>
+      </button>
+      <div class="reading-hypotheses">
+        ${theorem.required_hypotheses?.length
+          ? `<ol class="reading-bullets">${theorem.required_hypotheses.map((h) => `<li class="math-text">${mathHtml(h)}</li>`).join("")}</ol>`
+          : `<p class="reading-hint">No hypotheses recorded here. Consult the theorem before marking this inference verified.</p>`}
+      </div>
+    </div>`).join(""), "reading-proof-checks");
 }
 
 function edgeInspector(graph, edge) {
   const audit = inferenceAuditModel(graph, edge);
   const verified = activeDoc().verification.edges.get(edge.id) === edgeFingerprint(graph, edge.id);
-  const editing = state.inspectorMode === "edit";
 
   const flow = `<section class="reading-section reading-inference-flow" aria-label="Mathematical inference">
     <h3>Required assumptions</h3>
@@ -566,52 +604,38 @@ function edgeInspector(graph, edge) {
       <span class="reading-flow-arrow" aria-hidden="true">↓</span>
       <div class="reading-method-card">
         <span class="reading-mini-label">Inference method</span>
-        <div class="reading-method-name math-text">${mathHtml(audit.method)}</div>
+        ${editableMath("edges", edge.id, "method", "Inference method", audit.method, renderedMath(audit.method), false)}
       </div>
       <span class="reading-flow-arrow" aria-hidden="true">↓</span>
     </div>
-    <h3>Conclusion</h3>
+    <h3>Conclusion to establish</h3>
     ${audit.target ? statementLink(audit.target, "Target assertion") : `<span class="reading-hint">Conclusion unavailable.</span>`}
   </section>`;
 
-  const reasoning = readingSection("Detailed justification",
-    renderedMath(audit.justification) +
-    (audit.obligations?.length ? `<div class="reading-obligations"><span class="reading-mini-label">Proof obligations</span>
-      <ul class="reading-bullets">${audit.obligations.map((requirement) => `<li class="math-text">${mathHtml(requirement)}</li>`).join("")}</ul></div>` : ""),
-    "reading-reasoning");
-
-  const edits = editHint()
-    + editable("edges", edge.id, "method", "Inference method", edge.method, false)
-    + editable("edges", edge.id, "from", "Sources · one node ID per line", edge.from)
-    + editable("edges", edge.id, "to", "Conclusion · node ID", edge.to, false)
-    + editable("edges", edge.id, "justification", "Mathematical justification", edge.justification)
-    + editable("edges", edge.id, "uses", "Theorems · one ID per line", edge.uses ?? [])
-    + (edge.obligations ? editable("edges", edge.id, "obligations", "Obligations · one per line", edge.obligations) : "");
-
-  const theoremRefs = audit.theorems.length ? readingSection("Theorem dependencies",
-    `<p class="reading-hint">Verify that each listed hypothesis holds in this inference.</p>` +
-    audit.theorems.map((theorem) => `<article class="reading-theorem-reference">
-      <button type="button" class="reading-theorem-link" data-select-type="theorem" data-select-id="${escapeAttribute(theorem.id)}">
-        <span>${escapeHtml(theorem.id)} ↗</span>
-        <div class="math-text">${mathHtml(theorem.statement)}</div>
-      </button>
-      <div class="reading-hypotheses">
-        <strong>Required hypotheses</strong>
-        ${theorem.required_hypotheses?.length
-          ? `<ol class="reading-bullets">${theorem.required_hypotheses.map((h) => `<li class="math-text">${mathHtml(h)}</li>`).join("")}</ol>`
-          : `<p class="reading-hint">Not specified; review theorem assumptions before verifying.</p>`}
-      </div>
-    </article>`).join(""), "reading-references") : "";
+  const reasoning = mathFieldSection("edges", edge.id, "justification", "Detailed justification to verify",
+    audit.justification, "reading-reasoning");
+  const obligations = audit.obligations?.length
+    ? mathFieldSection("edges", edge.id, "obligations", "Specific proof obligations",
+      audit.obligations, "reading-proof-checks",
+      `<ol class="reading-bullets">${audit.obligations.map((requirement) => `<li class="math-text">${mathHtml(requirement)}</li>`).join("")}</ol>`)
+    : "";
+  const advanced = advancedFields(
+    editable("edges", edge.id, "from", "Source node IDs · one per line", edge.from)
+    + editable("edges", edge.id, "to", "Conclusion node ID", edge.to, false)
+    + editable("edges", edge.id, "uses", "Theorem IDs · one per line", edge.uses ?? [])
+  );
 
   return `<div class="inspector-content reading-inspector reading-edge-inspector">
     ${inspectorHeader("Inference", "Review inference", edge.id, { verification: "edge", verified, commentType: "edge" })}
     <div class="reading-body">
-      ${editing ? edits : flow + reasoning}
+      ${flow}
+      ${reasoning}
+      ${obligations}
+      ${audit.scope ? readingSection("Local assumptions and scope", renderedMath(formatValue(audit.scope)), "reading-proof-checks") : ""}
       ${mistakesSection(audit.mistakes)}
-      ${audit.scope ? readingSection("Scope / local assumptions", renderedMath(formatValue(audit.scope)), "reading-scope") : ""}
-      ${theoremRefs}
-      ${editing ? `<details class="reading-disclosure"><summary>Preview mathematical inference</summary>${flow}${reasoning}</details>` : ""}
+      ${theoremRequirements(audit.theorems)}
       ${auditChecklist()}
+      ${advanced}
       ${commentBox("edge", edge.id, "justification")}
     </div>
   </div>`;
@@ -630,25 +654,36 @@ function pathInspector(graph, index) {
       <div class="reading-header-label">Complete solution path <span class="reading-header-id">#${index + 1}</span></div>
       <h2>Proof path ${index + 1}</h2>
       <div class="reading-actions">
-        <label class="reading-verify"><input type="checkbox" data-verify-path="${index}" ${verified ? "checked" : ""}>
-          <span>${verified ? "Verified path" : "Verify path"}</span></label>
+        <label class="reading-verify" title="Manual path verification, not an automated mathematical proof">
+          <input type="checkbox" data-verify-path="${index}" ${verified ? "checked" : ""}>
+          <span>${verified ? "Verified path" : "Mark path verified"}</span>
+        </label>
         <span class="reading-path-progress">${status}/${audit.orderedEdges.length} inferences marked verified</span>
       </div>
     </header>
     <div class="reading-body">
-      ${readingSection("Goal", audit.goal ? renderedMath(audit.goal.assertion ?? audit.goal.claim) : "", "reading-hero")}
+      ${readingSection("Goal to establish", audit.goal ? renderedMath(audit.goal.assertion ?? audit.goal.claim) : "", "reading-hero")}
       ${readingSection("Premises", audit.premises.length
         ? audit.premises.map((node, i) => statementLink(node, `Premise ${i + 1}`)).join("")
         : `<p class="reading-hint">No premise assertions recorded for this path.</p>`)}
-      ${readingSection("Inferences · premise to goal", audit.orderedEdges.map((edge, i) => {
-        const mark = activeDoc().verification.edges.get(edge.id) === edgeFingerprint(graph, edge.id);
-        return `<button type="button" class="reading-path-step" data-select-type="edge" data-select-id="${escapeAttribute(edge.id)}">
-          <span class="reading-path-step-index">${String(i + 1).padStart(2, "0")}</span>
-          <span><strong class="math-text">${mathHtml(edge.method)}</strong><small>${escapeHtml(edge.id)} · ${mark ? "Marked verified" : "Not yet verified"}</small></span>
-          <span aria-hidden="true">↗</span>
-        </button>`;
-      }).join(""))}
-      ${mistakesSection(audit.mistakes)}
+      <section class="reading-section reading-path-proof">
+        <h3>Mathematical argument · premise to goal</h3>
+        ${audit.orderedEdges.map((edge, i) => {
+          const review = inferenceAuditModel(graph, edge);
+          const mark = activeDoc().verification.edges.get(edge.id) === edgeFingerprint(graph, edge.id);
+          return `<article class="reading-path-step">
+            <div class="path-step-heading">
+              <span class="reading-path-step-index">Step ${i + 1}</span>
+              <button type="button" class="reading-reference-link" data-select-type="edge" data-select-id="${escapeAttribute(edge.id)}">Review inference ↗</button>
+              <span class="path-step-status">${mark ? "Verified" : "Not reviewed"}</span>
+            </div>
+            <div class="path-step-method math-text">${mathHtml(edge.method)}</div>
+            <div class="path-step-claim math-text">${mathHtml(review.target?.assertion ?? review.target?.claim ?? "")}</div>
+            <div class="path-step-reason math-text">${mathHtml(edge.justification)}</div>
+          </article>`;
+        }).join("")}
+      </section>
+      ${mistakesSection(audit.mistakes, "Pitfalls affecting this proof path")}
       ${auditChecklist("path")}
     </div>
   </div>`;
@@ -672,6 +707,7 @@ function loadSource(source, name) {
 }
 
 function activateDocument(key) {
+  state.inlineEdit = null;
   state.inspectorMode = "read";
   state.commentComposerOpen = false;
   const current = activeDoc();
@@ -692,6 +728,36 @@ function activateDocument(key) {
 async function loadFiles(files) {
   for (const file of files) if (/\.ya?ml$/i.test(file.name)) loadSource(await file.text(), file.name);
   fileInput.value = "";
+}
+
+function applyInlineField(input) {
+  const doc = activeDoc();
+  if (!doc?.report.graph) return false;
+  const { editKind: kind, editId: id, editField: field } = input.dataset;
+  const candidate = structuredClone(doc.report.graph);
+  const target = kind === "problem" ? candidate.problem : candidate[kind]?.find((item) => item.id === id);
+  if (!target) return false;
+  const previous = target[field];
+  const next = Array.isArray(previous) || ["required_hypotheses", "from", "uses", "obligations"].includes(field)
+    ? input.value.split("\n").map((line) => line.trim()).filter(Boolean) : input.value;
+  target[field] = next;
+  if (kind === "nodes" && (field === "claim" || field === "assertion")) {
+    target.assertion = next;
+    target.claim = next;
+  }
+  const report = validateGraph(candidate);
+  if (report.errors.length) {
+    const errorText = input.closest(".inline-editor")?.querySelector(".inline-error");
+    if (errorText) {
+      errorText.textContent = report.errors.slice(0, 2).map((issue) => issue.path + ": " + issue.message).join(" ");
+      errorText.hidden = false;
+    }
+    return false;
+  }
+  state.inlineEdit = null;
+  updateField(input);
+  renderInspector();
+  return true;
 }
 
 function updateField(input) {
@@ -805,8 +871,30 @@ root.addEventListener("click", async (event) => {
   if (action === "inspector-mode") {
     state.inspectorMode = event.target.closest("[data-mode]")?.dataset.mode === "edit" ? "edit" : "read";
     state.commentComposerOpen = false;
-    inspector.scrollTop = 0;
+    state.inlineEdit = null;
+    const previousScroll = inspector.scrollTop;
     renderInspector();
+    inspector.scrollTop = previousScroll;
+    return;
+  }
+  if (action === "edit-inline") {
+    state.inlineEdit = event.target.closest("[data-inline-key]")?.dataset.inlineKey ?? null;
+    const previousScroll = inspector.scrollTop;
+    renderInspector();
+    inspector.scrollTop = previousScroll;
+    inspector.querySelector("[data-inline-field]")?.focus();
+    return;
+  }
+  if (action === "cancel-inline-edit") {
+    state.inlineEdit = null;
+    const previousScroll = inspector.scrollTop;
+    renderInspector();
+    inspector.scrollTop = previousScroll;
+    return;
+  }
+  if (action === "save-inline-edit") {
+    const input = event.target.closest(".inline-editor")?.querySelector("[data-inline-field]");
+    if (input) applyInlineField(input);
     return;
   }
   if (action === "inspector-comment") {
@@ -870,6 +958,7 @@ root.addEventListener("click", async (event) => {
   const selection = event.target.closest("[data-select-id]");
   if (selection) {
     state.inspectorMode = "read";
+    state.inlineEdit = null;
     state.commentComposerOpen = false;
     inspector.scrollTop = 0;
     state.selection = { type: selection.dataset.selectType, id: selection.dataset.selectId };
@@ -890,6 +979,7 @@ root.addEventListener("click", async (event) => {
     state.activePath = state.activePath === index ? null : index;
     state.selection = state.activePath === null ? { type: "context", id: "problem" } : { type: "path", id: String(index) };
     state.inspectorMode = "read";
+    state.inlineEdit = null;
     state.commentComposerOpen = false;
     inspector.scrollTop = 0;
     if (window.innerWidth <= 760 && state.activePath !== null) state.mobilePanel = "inspector";
@@ -941,7 +1031,7 @@ root.addEventListener("change", (event) => {
     event.target.checked ? doc.verification.paths.set(key, pathFingerprint(graph, path)) : doc.verification.paths.delete(key);
     saveVerification(doc); renderSidebar(); renderInspector(); return;
   }
-  if (event.target.matches("[data-edit-field]")) { updateField(event.target); return; }
+  if (event.target.matches("[data-edit-field]:not([data-inline-field])")) { updateField(event.target); return; }
   if (event.target.matches("[data-compare]")) {
     state.compare[event.target.dataset.compare] = event.target.value;
     state.selection = { type: "validation", id: "report" };
@@ -964,7 +1054,11 @@ root.addEventListener("change", (event) => {
 });
 
 root.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !workflowModal.hidden) hideWorkflow();
+  if (event.key === "Escape" && !workflowModal.hidden) { hideWorkflow(); return; }
+  if (event.key === "Escape" && state.inlineEdit) {
+    state.inlineEdit = null;
+    renderInspector();
+  }
 });
 
 fileInput.addEventListener("change", () => loadFiles([...fileInput.files]));
