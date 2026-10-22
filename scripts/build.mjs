@@ -5,7 +5,7 @@ await mkdir("dist/src", { recursive: true });
 await cp("app/index.html", "dist/index.html");
 for (const file of [
   "app.js", "graph-core.js", "sampleGraph.js", "math-render.js",
-  "context-ui.js", "review-core.js", "verification-core.js",
+  "context-ui.js", "review-core.js", "verification-core.js", "inspector-core.js",
   "styles.css", "yaml-lite.js"
 ]) {
   await cp("app/src/" + file, "dist/src/" + file);
