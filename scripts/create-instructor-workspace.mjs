@@ -1,39 +1,51 @@
-import { cp, mkdir, readFile, access } from "node:fs/promises";
-import { resolve, dirname, join } from "node:path";
+import { cp, mkdir, readFile } from "node:fs/promises";
+import { resolve, dirname, join, isAbsolute, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 
+function safeRelative(path) {
+  return typeof path === "string" && path.length > 0
+    && !isAbsolute(path) && !path.split(/[\\/]/).includes("..");
+}
+
 export async function createWorkspace(outputPath) {
   const target = resolve(outputPath);
-  if (target === resolve(root) || target === resolve(root, "src") || target.startsWith(resolve(root, "src") + "/")) {
+  const sourceRoot = resolve(root);
+  if (target === sourceRoot || ["app", "core", "workflow"].some((part) =>
+      target === resolve(sourceRoot, part) || target.startsWith(resolve(sourceRoot, part) + sep))) {
     throw new Error("Refusing to overwrite Proof Atlas source files");
   }
-  try {
-    await access(target);
-    throw new Error(`Destination already exists: ${target}. Choose an unused directory.`);
-  } catch (error) {
-    if (error.code !== "ENOENT") throw error;
+  const manifest = JSON.parse(
+    await readFile(join(root, "templates/instructor-workspace/manifest.json"), "utf8")
+  );
+  if (!Array.isArray(manifest.files) || !manifest.files.length) {
+    throw new Error("Workspace manifest must have a nonempty files list");
   }
-  const manifest = JSON.parse(await readFile(join(root, "templates/instructor-workspace/manifest.json"), "utf8"));
-  const paths = [
-    ...manifest.files.map((path) => [path, path]),
-    ...Object.entries(manifest.templateFiles)
-  ];
-  for (const [source, output] of paths) {
-    if ([source, output].some((path) => path.startsWith("/") || path.split("/").includes(".."))) {
-      throw new Error("Invalid workspace path in manifest");
+  const destinations = new Set();
+  for (const { source, destination } of manifest.files) {
+    if (!safeRelative(source) || !safeRelative(destination) || destinations.has(destination)) {
+      throw new Error("Invalid or duplicate workspace path in manifest");
     }
-    const destination = join(target, output);
-    await mkdir(dirname(destination), { recursive: true });
-    await cp(join(root, source), destination);
+    destinations.add(destination);
+  }
+  try {
+    await mkdir(target);
+  } catch (error) {
+    if (error.code === "EEXIST") throw new Error(`Destination already exists: ${target}. Choose a NEW directory.`);
+    throw error;
+  }
+  for (const { source, destination } of manifest.files) {
+    const dest = join(target, destination);
+    await mkdir(dirname(dest), { recursive: true });
+    await cp(join(root, source), dest);
   }
   return target;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   createWorkspace(process.argv[2] ?? "./instructor-workspace").then(
-    (destination) => console.log(`Workspace created: ${destination}`),
+    (where) => console.log(`Created instructor workspace: ${where}`),
     (error) => { console.error(error.message); process.exitCode = 1; }
   );
 }
