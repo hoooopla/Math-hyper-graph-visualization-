@@ -49,7 +49,7 @@ test("policy records explicit per-assignment decisions and scoped overrides", as
   assert.match(starter, /EARLY CHECKPOINT/);
   assert.match(starter, /NEVER reusable/);
   assert.match(starter, /assignments\/\<assignment-id\>\/policy\.yaml/);
-  assert.match(starter, /new theorem or justification dependencies/);
+  assert.match(starter, /new\s+theorem or justification dependencies/);
 });
 
 test("assignment policy stays separate from the canonical graph schema", async () => {
