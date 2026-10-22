@@ -36,7 +36,7 @@ test("policy records explicit per-assignment decisions and scoped overrides", as
   const policy = await read("workflow/assignment-policy.md");
   const verifier = await read("workflow/verify-solution-graph.md");
   const starter = await read("workflow/start-with-gpt-work.md");
-  assert.match(policy, /Previous.*not authorization/);
+  assert.match(policy, /do \*\*not\*\* transfer approval/);
   assert.match(policy, /approval_evidence/);
   assert.match(policy, /problem_overrides/);
   assert.match(policy, /An override takes precedence/);
@@ -45,7 +45,7 @@ test("policy records explicit per-assignment decisions and scoped overrides", as
   assert.match(verifier, /earliest pass is exploratory/);
   assert.match(verifier, /same assignment/);
   assert.match(verifier, /Delta checkpoint/);
-  assert.match(verifier, /do not duplicate the entire assignment table/);
+  assert.match(verifier, /rather than duplicating the entire assignment table/);
   assert.match(starter, /EARLY CHECKPOINT/);
   assert.match(starter, /NEVER reusable/);
   assert.match(starter, /assignments\/\<assignment-id\>\/policy\.yaml/);
