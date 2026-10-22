@@ -30,6 +30,19 @@ test("workspace generator creates only intended private-repository files", async
     assert.match(template, /TEMPLATE ONLY/);
     assert.match(template, /decisions: \[\]/);
     assert.match(template, /problem_overrides: \[\]/);
+    const discoveryPrompt = await readFile(join(target, "prompts/preaudit-discovery.md"), "utf8");
+    assert.match(discoveryPrompt, /only when the instructor explicitly opts in/);
+    assert.match(discoveryPrompt, /Coverage and input limitations|coverage register/);
+    assert.match(discoveryPrompt, /not student homework auditing/);
+    assert.match(discoveryPrompt, /Cite \/ Derive \/ Exclude/);
+    const discoveryTemplate = await readFile(join(target, "templates/discovery-report.template.md"), "utf8");
+    assert.match(discoveryTemplate, /TEMPLATE ONLY/);
+    assert.match(discoveryTemplate, /Fully legible\/covered/);
+    assert.match(discoveryTemplate, /no graph mutations yet/i);
+    const ignore = await readFile(join(target, ".gitignore"), "utf8");
+    assert.match(ignore, /submissions\//);
+    assert.match(ignore, /private\//);
+    assert.match(ignore, /\*\.docx/);
     const publicSchema = await readFile(new URL("../core/schema/solution-graph.schema.json", import.meta.url));
     const privateSchema = await readFile(join(target, "schema/solution-graph.schema.json"));
     assert.deepEqual(publicSchema, privateSchema, "private schema must exactly match public authority");
@@ -46,7 +59,7 @@ test("workspace generator creates only intended private-repository files", async
 
 test("workspace manifest has explicit unique paths and never copies frontend", async () => {
   const data = JSON.parse(await readFile(new URL("../templates/instructor-workspace/manifest.json", import.meta.url), "utf8"));
-  assert.equal(data.version, 3);
+  assert.equal(data.version, 4);
   assert.ok(data.files.length > 0);
   const outputs = data.files.map((entry) => entry.destination);
   assert.equal(new Set(outputs).size, outputs.length);
@@ -54,6 +67,8 @@ test("workspace manifest has explicit unique paths and never copies frontend", a
   assert.ok(data.files.some((entry) => entry.source === "templates/instructor-workspace/AGENTS.md" && entry.destination === "AGENTS.md"));
   assert.ok(data.files.some((entry) => entry.source === "workflow/assignment-policy.md" && entry.destination === "prompts/assignment-policy.md"));
   assert.ok(data.files.some((entry) => entry.source === "templates/instructor-workspace/assignment-policy.template.yaml" && entry.destination === "templates/assignment-policy.template.yaml"));
+  assert.ok(data.files.some((entry) => entry.source === "workflow/preaudit-discovery.md" && entry.destination === "prompts/preaudit-discovery.md"));
+  assert.ok(data.files.some((entry) => entry.source === "templates/instructor-workspace/discovery-report.template.md" && entry.destination === "templates/discovery-report.template.md"));
   assert.equal(data.files.some((entry) => entry.source.startsWith("app/")), false);
 });
 
