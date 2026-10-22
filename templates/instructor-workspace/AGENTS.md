@@ -6,7 +6,9 @@ and authorized source materials. Protect confidential course/student data.
 
 1. Before generating/modifying `graph.yaml`, read from this repository:
    `SCHEMA.md`, `schema/solution-graph.schema.json`,
-   `scripts/validate_graphs.py`, `prompts/generate-solution-graph.md`,
+   `schema/assignment-policy.schema.json`,
+   `scripts/validate_graphs.py`, `scripts/validate_policies.py`,
+   `prompts/generate-solution-graph.md`,
    `prompts/verify-solution-graph.md`,
    `prompts/assignment-policy.md`, and
    `prompts/preaudit-discovery.md`. These are pinned workflow rules.
@@ -31,7 +33,9 @@ and authorized source materials. Protect confidential course/student data.
    requested or accessed opportunistically. Independently verify any
    candidate inferences before adding them to canonical graphs.
 4. After the instructor's choices, create or update
-   `assignments/<assignment-id>/policy.yaml` from
+   `assignments/<assignment-id>/policy.yaml` **inside the same
+   assignment folder as the problem directories**, not in a separate
+   `policies/` folder, from
    `templates/assignment-policy.template.yaml`. Record **only actual,
    explicitly confirmed decisions**, their precise theorem/step statements,
    affected problems, real approval evidence and approved overrides. The
@@ -50,8 +54,15 @@ and authorized source materials. Protect confidential course/student data.
    structural validation status. The policy is **assignment-wide**, lives
    outside graph YAML, and is not part of the canonical schema.
    `edges[].uses` and `theorems[].required_hypotheses` record mathematical
-   dependencies, not permission.
-7. Run `python scripts/validate_graphs.py`; correct failures and rerun.
+   dependencies, not permission. A direct `edges[].uses` citation
+   is permitted only when the effective approved treatment for that
+   problem is `cite`. All theorems listed in the graph must have
+   applicable policy entries with matching mathematical statements.
+7. Run **both** `python scripts/validate_graphs.py` and
+   `python scripts/validate_policies.py` before committing any
+   assignment graph or policy; correct failures and rerun. The latter
+   checks recorded approvals and scoped citations, not actual proof
+   validity, approval authenticity or theorem hypotheses.
    Preserve stable IDs and approved mathematics. Commit policy+graphs only
    after the necessary explicit instructor decisions; open a reviewable PR
    and do not merge mathematical changes without final instructor approval.

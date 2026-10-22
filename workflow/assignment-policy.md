@@ -1,8 +1,22 @@
 # Assignment-scoped theorem and justification policy
 
 This is a **workflow contract**, not part of canonical `graph.yaml`.
-Every assignment in an instructor-owned repository may have its own
-`assignments/<assignment-id>/policy.yaml`. The file records only explicit
+Every assignment in an instructor-owned repository has **exactly one**
+`policy.yaml` for its solution graphs, **directly inside that assignment
+folder**, alongside the problem subfolders:
+```text
+assignments/
+  HW01/
+    policy.yaml             # same assignment folder, no policies/ subfolder
+    P01/graph.yaml
+    P01/verification.md
+    P02/graph.yaml
+    P02/verification.md
+```
+Do not create a separate `policies/` directory or put policy files in
+individual problem folders. The assignment folder name must match
+`policy.assignment_id`; problem scope IDs are **problem folder names**
+(e.g. `P01`), even if `graph.problem.id` is more descriptive. The file records only explicit
 instructor decisions for that assignment. Earlier assignments are evidence
 about course progress, **not authorization for later assignments**.
 
@@ -60,8 +74,8 @@ about course progress, **not authorization for later assignments**.
 ## File format
 
 Start from `templates/assignment-policy.template.yaml` in the private
-workspace; create the real file only after receiving the instructor's
-decisions. Each decision has:
+workspace; create the real file in the **same assignment directory**
+only after receiving the instructor's decisions. Each decision has:
 
 | Field | Meaning |
 | --- | --- |
@@ -127,6 +141,56 @@ ask only about uncovered or changed dependencies.
   an expanded policy that claims approval. A GitHub PR is proposed for
   **review**, not proof of final instructor approval or a merge command.
 - The policy is intentionally **not** part of `schema/solution-graph.schema.json`.
-  Canonical graph fields remain unchanged. This policy is interpreted by
-  the GPT Work workflow; the website does not enforce it.
+  Canonical graph fields remain unchanged. The instructor workspace now
+  **enforces recorded permissions in CI** with an independent validator.
+  The browser viewer itself does not enforce theorem permissions.
 - Do not use this file for student grades, submissions or auditing.
+
+## Enforced policy-compliance check
+
+Before committing any new or changed graph or assignment policy, run:
+
+```sh
+python scripts/validate_graphs.py
+python scripts/validate_policies.py
+```
+
+The first command validates canonical graph structure and references. The
+second checks **every** `assignments/<assignment-id>/<problem-dir>/graph.yaml`
+against that same assignment folder's `policy.yaml`. Both are required
+CI checks in the instructor-owned workspace.
+
+The policy validator rejects:
+
+- missing, malformed, ambiguously duplicated, or misplaced `policy.yaml`;
+- mismatch of `assignment_id` and assignment directory;
+- missing instructor decision for **any theorem declared in
+  `graph.theorems`**, whether or not currently cited;
+- theorem statement different from its approved statement (except
+  whitespace), and theorem permissions outside approved problem folders;
+- any direct `edges[].uses` invocation whose effective treatment is
+  `derive`, `exclude`, or pending, including applicable problem overrides;
+- duplicate/conflicting decisions or overrides, and blank or obvious
+  placeholder `approval_evidence`.
+
+`derive`: represent the proof by **mathematical nodes and justified
+edges** instead of an external `edges[].uses` citation. A `theorems[]`
+entry with treatment `derive` may describe the result but cannot be
+cited as an external theorem. A theorem with treatment `exclude` likewise
+cannot be invoked directly; preferably omit unused excluded results
+from the canonical graph. A theorem approved `cite` still needs all
+mathematical hypotheses checked independently.
+
+The validator can inspect **recorded declarations and citations only**.
+It cannot prove a derivation, confirm theorem hypotheses, verify the
+authenticity of approval evidence, or detect hidden theorem invocations
+written in prose. Instructor judgment and independent mathematical
+verification remain mandatory. The validator has its own
+`schema/assignment-policy.schema.json`; it does **not** modify the
+canonical graph v1.0 schema.
+
+The public synthetic example under `examples/` is deliberately outside
+the assignment policy gate. When no `assignments/*/*/graph.yaml` exists,
+the separate policy validator reports zero assignment graphs and succeeds;
+it **fails closed** when a real assignment graph lacks its sibling
+assignment-local policy.

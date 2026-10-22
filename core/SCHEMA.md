@@ -22,11 +22,20 @@ format. The graph is mathematical data, not a grading or UI-layout document.
   `edges[].uses` names mathematical theorem dependencies;
   `required_hypotheses` names mathematical assumptions, **not whether a
   course permits citing the result without proof**. Instructor decisions
-  (cite / derive / exclude) belong in the *assignment's*
-  `policy.yaml`, outside the solution-graph schema, and are referenced
+  (cite / derive / exclude) belong in
+  `assignments/<assignment-id>/policy.yaml` **directly inside the
+  assignment directory**, alongside problem folders—not in a separate
+  `policies/` folder—outside the solution-graph schema, and are referenced
   in each problem's `verification.md` with precise scope. Obtain explicit
   decisions early, before generating full proof graphs; request approval
   for new dependencies discovered later before committing affected routes.
+  **Every** theorem listed in a graph must have an approved policy
+  decision covering that problem folder and the same theorem statement.
+  Every direct `edges[].uses` citation requires effective treatment
+  `cite`; `derive` and `exclude` cannot be invoked without proof.
+  Run `scripts/validate_policies.py` as a separate permission check;
+  it does not prove theorem applicability or verify actual instructor
+  evidence.
 - **Mistakes** are a list of `{id, related_edges, pattern, defect, category}`.
   Mistakes annotate invalid or incomplete reasoning, never valid proof edges.
   No grading points or penalties.
@@ -102,6 +111,13 @@ mistakes:
 ```
 
 ## Validation
+
+The instructor workspace runs two separate checks:
+`python scripts/validate_graphs.py` for graph structure and
+`python scripts/validate_policies.py` for recorded assignment-local
+theorem permission. The latter uses a **separate**
+`schema/assignment-policy.schema.json`, without modifying canonical
+solution-graph v1.0.
 
 The JSON Schema verifies the *shape* of the graph. The viewer additionally
 checks duplicate IDs, references, AND-reachability of goals, and dependency

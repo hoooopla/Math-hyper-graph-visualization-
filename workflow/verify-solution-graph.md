@@ -3,8 +3,9 @@
 This prompt governs the mathematical checks, the **early assignment-wide
 Cite / Derive / Exclude checkpoint**, later incremental policy changes and
 each concise `verification.md`. Read `AGENTS.md`, `SCHEMA.md`, the
-JSON Schema, `prompts/assignment-policy.md`, the PDF and existing files
-before work. Do not audit student work unless explicitly requested.
+canonical graph JSON Schema, `schema/assignment-policy.schema.json`,
+`scripts/validate_policies.py`, `prompts/assignment-policy.md`,
+the PDF and existing files before work. Do not audit student work unless explicitly requested.
 
 ## 1. Preliminary checkpoint BEFORE complete proof generation
 
@@ -103,10 +104,13 @@ graph inference and counterexample independently, even when many
 submissions exhibit the same pattern. Preserve rare legitimate strategies
 without pretending all possible routes were enumerated.
 
-A graph may cite a theorem only where both (a) its hypotheses hold
-mathematically and (b) the corresponding unproved invocation is explicitly
-permitted in the policy for that problem. A `derive` decision requires
-a proof, and `exclude` prohibits an unproved shortcut. Preserve stable IDs
+A graph may cite a theorem through `edges[].uses` only where both
+(a) its hypotheses hold mathematically and (b) the **effective
+assignment policy treatment is `cite` for that problem folder**.
+Every declared `theorems[]` item must have an explicit applicable
+policy decision with the exact approved mathematical statement.
+A `derive` decision requires graph proof nodes/steps, not a direct
+theorem citation; an `exclude` decision forbids unproved invocation. Preserve stable IDs
 and human-approved arguments when modifying an existing graph.
 
 **Delta checkpoint:** If graph construction or revisions introduce a new
@@ -119,8 +123,19 @@ Do not restart the whole policy checkpoint without cause.
 
 ## 4. Validation and GitHub review gate
 
-- Run `python scripts/validate_graphs.py` and correct all structural
-  errors when execution is available; otherwise say validation was not run.
+- Run `python scripts/validate_graphs.py` **and**
+  `python scripts/validate_policies.py` and correct all errors when
+  execution is available; otherwise say exactly which checks were not
+  run. Both are CI checks for instructor-owned workspaces.
+- `policy.yaml` must be placed **directly in the same assignment
+  directory** as its problem subfolders:
+  `assignments/HW01/policy.yaml`, `assignments/HW01/P01/graph.yaml`.
+  Never create a separate `policies/` folder.
+- The policy validator checks the recorded theorem inventory, exact
+  statements, per-problem scope and overrides, and forbids any direct
+  unapproved/`derive`/`exclude` citation. It **cannot** establish the
+  mathematical correctness of a derivation or confirm a theorem's
+  hypotheses, approval provenance or hidden prose references.
 - The `policy.yaml` is **outside** the canonical solution-graph schema:
   do not add policy fields to `graph.yaml`.
 - An instructor response permits recording a scoped policy; it is
@@ -158,7 +173,9 @@ Use exactly these conceptual sections:
 
 ### Structural validation and approval status
 
-- State the validator command and actual outcome (or unavailability).
+- Report both graph and theorem-policy validator commands and their
+  actual outcomes (or unavailability); policy validation is not proof
+  correctness.
 - Separately identify (1) structural validation,
   (2) independent mathematical verification,
   (3) assignment-specific instructor theorem-policy confirmation, and
