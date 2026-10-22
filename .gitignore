@@ -1,4 +1,15 @@
-node_modules/
-dist/
+# Potentially sensitive course and student data: do not commit by default
+*.pdf
+submissions/
+student-submissions/
+students/
+private/
+uploads/
+.env
+.env.*
+*.key
+*.pem
+__pycache__/
+*.py[cod]
+.venv/
 .DS_Store
-npm-debug.log*

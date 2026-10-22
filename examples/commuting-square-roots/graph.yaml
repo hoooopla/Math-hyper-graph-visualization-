@@ -1,0 +1,54 @@
+schema_version: "1.0"
+problem:
+  id: EXAMPLE_COMMUTING_SQUARE_ROOTS
+  title: Commuting positive matrix square roots (synthetic demonstration)
+  source: 'Synthetic exercise written specifically for this public template.'
+  statement: |-
+    Suppose $A,B$ are positive definite Hermitian matrices and $AB=BA$.
+    Prove that their positive square roots commute:
+    \[
+      A^{1/2}B^{1/2}=B^{1/2}A^{1/2}.
+    \]
+  ambiguities: []
+canonical_notation:
+  A: '$A$ is positive definite Hermitian.'
+  B: '$B$ is positive definite Hermitian.'
+  matrix_root: '$A^{1/2}$ is the unique positive definite Hermitian square root of $A$.'
+theorems:
+  - id: THM_SIMULTANEOUS_SPECTRAL
+    statement: 'Commuting Hermitian matrices are simultaneously unitarily diagonalizable.'
+    required_hypotheses:
+      - '$A$ and $B$ are Hermitian.'
+      - '$AB=BA$.'
+    source: 'Standard simultaneous spectral theorem in finite-dimensional linear algebra.'
+nodes:
+  - id: P_POSITIVE_COMMUTING
+    type: premise
+    assertion: '$A,B$ are positive definite Hermitian matrices satisfying $AB=BA$.'
+  - id: M_COMMON_DIAGONALIZATION
+    type: milestone
+    assertion: 'There is a unitary $U$ for which $U^*AU$ and $U^*BU$ are positive diagonal matrices.'
+  - id: G_ROOTS_COMMUTE
+    type: goal
+    assertion: '$A^{1/2}B^{1/2}=B^{1/2}A^{1/2}$.'
+edges:
+  - id: E_COMMON_EIGENBASIS
+    from: [P_POSITIVE_COMMUTING]
+    to: M_COMMON_DIAGONALIZATION
+    method: Apply the simultaneous spectral theorem
+    uses: [THM_SIMULTANEOUS_SPECTRAL]
+    justification: 'Positive definite Hermitian matrices are Hermitian; the premise also gives commutativity, so the theorem applies. Their eigenvalues are positive.'
+  - id: E_DIAGONAL_ROOTS
+    from: [M_COMMON_DIAGONALIZATION]
+    to: G_ROOTS_COMMUTE
+    method: Functional calculus on positive diagonal matrices
+    justification: |-
+      Write $A=UD_AU^*$ and $B=UD_BU^*$ with positive diagonal matrices $D_A,D_B$.
+      Then $A^{1/2}=UD_A^{1/2}U^*$ and $B^{1/2}=UD_B^{1/2}U^*$.
+      Since diagonal matrices commute, so do the square roots.
+mistakes:
+  - id: MISTAKE_INDEPENDENT_EIGENBASES
+    related_edges: [E_COMMON_EIGENBASIS]
+    category: invalid_inference
+    pattern: 'Diagonalize $A$ and $B$ separately and assume that the two eigenbases coincide.'
+    defect: 'Separate spectral decompositions alone do not establish a common eigenbasis.'
