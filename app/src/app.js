@@ -56,7 +56,7 @@ root.innerHTML = `
         <p class="workflow-message" role="status" aria-live="polite"></p>
         <div class="workflow-actions">
           <button class="upload-button" data-action="copy-workflow" disabled>Copy prompt</button>
-          <a class="header-action" href="https://github.com/hoooopla/proof-atlas/blob/main/docs/GETTING_STARTED.md" target="_blank" rel="noopener noreferrer">Setup guide ↗</a>
+          <a class="header-action" href="https://github.com/hoooopla/proof-atlas/blob/main/docs/getting-started.md" target="_blank" rel="noopener noreferrer">Setup guide ↗</a>
           <a class="header-action" href="https://github.com/hoooopla/proof-atlas" target="_blank" rel="noopener noreferrer">Source ↗</a>
         </div>
       </section>
@@ -116,7 +116,7 @@ async function showWorkflow() {
   if (workflowLoaded) return;
   workflowMessage.textContent = "Loading the public workflow prompt…";
   try {
-    const response = await fetch("./prompts/start-with-gpt-work.md");
+    const response = await fetch("./workflow/start-with-gpt-work.md");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     workflowPrompt.value = (await response.text()).trim();
     workflowCopy.disabled = !workflowPrompt.value;

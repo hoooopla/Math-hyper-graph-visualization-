@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/server.mjs",
+    "dev": "npm run build && node scripts/server.mjs",
     "build": "node scripts/build.mjs",
-    "test": "node --test tests/*.test.js",
+    "test": "node --test app/tests/*.test.js tests/*.test.js",
     "check": "npm test && npm run build"
   }
 }

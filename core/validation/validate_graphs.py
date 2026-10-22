@@ -12,8 +12,14 @@ import yaml
 from jsonschema import Draft202012Validator
 
 
-ROOT = Path(__file__).resolve().parents[1]
-SCHEMA = ROOT / "schema" / "solution-graph.schema.json"
+# The canonical validator also runs from instructor-owned "scripts/" folders.
+HERE = Path(__file__).resolve()
+if HERE.parent.name == "validation" and HERE.parent.parent.name == "core":
+    ROOT = HERE.parents[2]
+    SCHEMA = ROOT / "core" / "schema" / "solution-graph.schema.json"
+else:
+    ROOT = HERE.parents[1]
+    SCHEMA = ROOT / "schema" / "solution-graph.schema.json"
 LEGACY_INLINE = re.compile(r"\\\(|\\\)")
 
 

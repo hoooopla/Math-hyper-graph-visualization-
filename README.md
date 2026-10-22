@@ -1,55 +1,95 @@
-# Proof Atlas — Mathematical Proof Audit Workspace
+# Proof Atlas
 
-**Proof Atlas** is a public, browser-based solution hypergraph viewer/editor **and** the canonical GPT Work workflow for independently developing, mathematically verifying, and reviewing solution graphs.
+**Explore, verify, and review mathematical proofs as solution hypergraphs.**
 
-[Open Proof Atlas](https://hoooopla.github.io/proof-atlas/) · [Getting started](docs/GETTING_STARTED.md) · [AI generation workflow](prompts/generate-solution-graph.md) · [Verification workflow](prompts/verify-solution-graph.md)
+[**Open the interactive website**](https://hoooopla.github.io/proof-atlas/) ·
+[Get started with GPT Work](docs/getting-started.md) ·
+[Canonical YAML format](core/SCHEMA.md)
 
-## Start with your own GPT Work
+Proof Atlas combines a client-side graph editor with a reproducible
+**GPT Work** workflow for proof generation and independent verification.
+Upload your own YAML locally to inspect its mathematical inferences,
+compare revisions, and prepare review comments.
 
-Open the website and choose **Start Workflow** to copy the setup prompt, or copy it directly from [prompts/start-with-gpt-work.md](prompts/start-with-gpt-work.md). Paste it in GPT Work and connect GitHub to a repository **you own** (preferably private for teaching data).
+## Get started
 
-GPT Work should initialize the instructor workspace, read the canonical schema, and analyze your attached problem PDF. **Before committing a new or changed graph**, it must ask which theorems may be **Cited**, must be **Derived**, or are **Excluded**, including course-specific justification requirements. After your answer it verifies and validates each graph, writes `graph.yaml` plus a concise `verification.md`, and proposes a PR for your review. Do not merge mathematical changes without instructor approval.
+1. Open [Proof Atlas](https://hoooopla.github.io/proof-atlas/) and choose
+   **Start Workflow** to copy the setup prompt into GPT Work.
+2. Connect GPT Work to **your own** GitHub repository and attach a problem
+   PDF. Before committing graphs, GPT Work asks which proposed theorems
+   may be **Cited**, must be **Derived**, or are **Excluded** in your course.
+3. After you answer, review the proposed `graph.yaml` and
+   `verification.md` for each problem in a pull request. Open the
+   graph in the website and approve the mathematics yourself.
 
-If repository creation or command execution is unavailable to Work, follow the [manual setup guide](docs/GETTING_STARTED.md). The public app stores **no student data** and does not automatically run GPT Work.
+The website is usable without GPT Work for **viewing and editing YAML**.
+AI runs in your GPT Work conversation, not inside the public website.
 
-## Repository structure
+## Workflow
 
-| Location | Responsibility |
-| --- | --- |
-| `src/`, `index.html`, `tests/` | Interactive browser-based proof graph reviewer and editor |
-| `prompts/` | Canonical GPT Work generation and adversarial verification workflow |
-| `SCHEMA.md`, `schema/` | **Single authoritative** solution graph YAML v1.0 specification |
-| `scripts/validate_graphs.py` | Deterministic structural validation |
-| `templates/instructor-workspace/` | Manifest and setup files for instructors' independent repositories |
-| `examples/` | Synthetic example only; **no real assignments or student work** |
-| `docs/` | Onboarding and review workflow |
-
-An instructor's own repository contains one `graph.yaml` and one `verification.md` per problem, plus a copy of the pinned workflow files. `visualization.md` is obsolete: the website renders YAML directly.
-
-## Website features
-
-Upload or drag in YAML locally (nothing is sent to the server). Review the Problem, Notation, and Theorems cards; inspect AND/OR inferences; select proof paths, annotate and verify nodes/edges/paths; compare two graphs; edit and export revised YAML or a change request for GPT Work. **The website is not an AI inference service.**
-
-## Developer checks
-
-Node.js 20+ and Python 3 are recommended:
-
-```sh
-npm run check
-python -m pip install -r requirements.txt
-python scripts/validate_graphs.py
+```text
+Problem PDF → AI proof analysis → instructor theorem decisions
+            → graph.yaml + verification.md → interactive human review
+            → revision / pull request
 ```
 
-The Node suite checks viewer/editor behavior; the Python validator checks graph structure and references. Neither proves mathematical correctness. The CI workflow runs both checks.
+## Features
 
-For a self-contained instructor workspace run:
+- Visualize directed **AND/OR hypergraphs** and inspect the complete
+  mathematical statements, theorem hypotheses, proof paths and mistakes.
+- Mark nodes, inferences and paths as verified; edit annotations and
+  mathematical statements with reviewable differences.
+- Compare two graph versions and export updated YAML or structured
+  change requests for GPT Work.
+- Keep each instructor's homework and confidential student materials
+  in their **own repository**, not this public software project.
+
+## Source organization
+
+| Directory | Responsibility |
+| --- | --- |
+| [`app/`](app/) | Browser viewer, editor, math rendering and UI tests |
+| [`core/`](core/) | Single public authoritative YAML schema, specification, validator |
+| [`workflow/`](workflow/) | Generation, verification, GPT Work setup prompts |
+| [`templates/instructor-workspace/`](templates/instructor-workspace/) | Minimal private instructor workspace |
+| [`examples/`](examples/) | Synthetic demonstration only |
+| [`docs/`](docs/) | Onboarding, architecture, contributing |
+| [`scripts/`](scripts/) | Site build/preview and workspace generation |
+
+Instructors receive a **copy** of the canonical schema and workflow files
+through the workspace generator, pinned to their own repository version.
+There is only one authoritative public schema:
+`core/schema/solution-graph.schema.json`.
+
+## Development
+
+Node.js 20+ and Python 3.12 are recommended:
+
+```sh
+npm run dev                        # Builds and serves localhost:4173
+npm run check                      # Node tests and website build
+python -m pip install -r requirements.txt
+python core/validation/validate_graphs.py
+```
+
+To create a standalone instructor workspace:
 
 ```sh
 node scripts/create-instructor-workspace.mjs ./my-instructor-workspace
 ```
 
-Then upload the resulting files to **your own private GitHub repository**.
+GitHub Pages publishes **only `dist/`**. Local YAML uploads and
+edits stay in the browser. Structural validation does not establish
+mathematical correctness.
 
-## Privacy and scope
+## Documentation
 
-The source code and workflow definitions are public. Never commit real student submissions, identifiers, grades, or private problem PDFs to this repository. Instructors retain responsibility for course policy and final mathematical approval. Student answer auditing is a separate, future workflow and is **not automatically performed** during solution graph generation.
+[Getting started](docs/getting-started.md) ·
+[Architecture](docs/architecture.md) ·
+[Contributing](docs/contributing.md) ·
+[Generation workflow](workflow/generate-solution-graph.md) ·
+[Verification workflow](workflow/verify-solution-graph.md)
+
+Do not publish identifiable student submissions, grades or confidential
+course PDFs in this public repository. Student-answer auditing is a
+separate later stage, not part of initial graph generation.
