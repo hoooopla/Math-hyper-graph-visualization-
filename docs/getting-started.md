@@ -40,13 +40,19 @@ instructor uses a separate GitHub repository** for their assignments.
    If a previously unapproved theorem or nonroutine step arises, it asks
    **only for that new dependency**, preserves earlier approvals and
    re-verifies affected routes.
-8. Work validates graph YAML and opens a PR with the assignment policy,
+8. Work runs **both** `python scripts/validate_graphs.py` and
+   `python scripts/validate_policies.py` to reject missing policies,
+   unapproved theorem declarations, mismatched theorem statements,
+   out-of-scope uses and `derive`/`exclude` direct citations. Both
+   must pass before a graph-containing PR is ready for review.
+   Work then opens a PR with the assignment policy,
    each `graph.yaml` and concise `verification.md`. Review mathematics
    and policy before merging.
 
 The early checkpoint is a **GPT Work prompt instruction**, not an
 enforced GitHub permission rule. A real policy file is created only after
-the instructor's response. If Work cannot run the validator, it must
+the instructor's response, **in the assignment folder alongside its
+problem subfolders**. If Work cannot run the validator, it must
 report that rather than claiming the check passed.
 
 ## Option B — create a private workspace locally
@@ -69,6 +75,7 @@ AGENTS.md
 README.md
 SCHEMA.md
 schema/solution-graph.schema.json
+schema/assignment-policy.schema.json
 prompts/generate-solution-graph.md
 prompts/verify-solution-graph.md
 prompts/assignment-policy.md
@@ -76,6 +83,7 @@ prompts/preaudit-discovery.md
 templates/assignment-policy.template.yaml
 templates/discovery-report.template.md
 scripts/validate_graphs.py
+scripts/validate_policies.py
 requirements.txt
 examples/commuting-square-roots/
 .github/workflows/validate.yml
@@ -86,6 +94,7 @@ Validate it locally:
 ```sh
 python -m pip install -r requirements.txt
 python scripts/validate_graphs.py
+python scripts/validate_policies.py
 ```
 
 ## Assignment policy structure
@@ -97,7 +106,7 @@ course materials. For example:
 assignments/
   HW01/
     discovery.md  # optional, private, de-identified
-    policy.yaml
+    policy.yaml   # in the assignment root, no separate policy folder
     P01/graph.yaml
     P01/verification.md
     P02/graph.yaml
@@ -109,8 +118,13 @@ assignments/
 `policy.yaml` is **not** part of `graph.yaml` or its JSON Schema.
 Keep only confirmed instructor decisions in it; per-problem
 `verification.md` files reference the approved entries and exceptions.
-The exact format and problem-specific override rules are in
-[Assignment policy](../workflow/assignment-policy.md).
+The exact format, problem-specific override rules and mechanical
+permission checks are in [Assignment policy](../workflow/assignment-policy.md).
+The validator checks **every** graph theorem entry against the approved
+assignment policy; a direct `edges[].uses` citation requires effective
+treatment `cite`. It does not establish the authenticity of instructor
+approval evidence, mathematical validity of theorem hypotheses, or
+whether a required derivation is actually correct.
 
 ## Optional pre-audit discovery from many student answers
 

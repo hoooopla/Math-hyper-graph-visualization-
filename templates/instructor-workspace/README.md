@@ -27,9 +27,12 @@ independent approaches with independently assessed discovery candidates. It must
 for your explicit choices; earlier assignments are context about progress,
 not authorization for this one.
 
-After approval, it records actual decisions in one assignment-specific
-`policy.yaml` (copy the inert `templates/assignment-policy.template.yaml`),
-then generates full mathematically verified solution graphs. Request new
+After approval, it records actual decisions in exactly one
+`assignments/<assignment-id>/policy.yaml` **directly in that assignment
+folder next to P01/, P02/, etc.**, not in a separate policy directory
+(copy the inert `templates/assignment-policy.template.yaml`).
+It then generates independently verified solution graphs and runs an
+additional policy-compliance validator before proposing graph changes. Request new
 decisions only for newly discovered dependencies.
 
 ```text
@@ -56,7 +59,12 @@ Per-problem reports reference the assignment policy and record exceptions
 without duplicating it. Do not create `visualization.md`.
 
 After instructor decisions, Work runs
-`python scripts/validate_graphs.py`, and proposes a PR containing policy,
+**both** `python scripts/validate_graphs.py` and
+`python scripts/validate_policies.py`. The second rejects missing or
+misplaced assignment policies, unapproved theorem declarations and
+direct citations not explicitly approved as `cite` for the problem.
+It cannot validate mathematical theorem hypotheses or proof correctness.
+Work proposes a PR containing policy,
 graphs and verification reports for your review. Validation does not
 establish mathematical correctness. Never merge mathematical changes
 without instructor approval.
@@ -69,4 +77,5 @@ To validate locally:
 ```sh
 python -m pip install -r requirements.txt
 python scripts/validate_graphs.py
+python scripts/validate_policies.py
 ```
