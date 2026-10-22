@@ -1,4 +1,16 @@
 *.pdf
+*.doc
+*.docx
+*.zip
+*.7z
+*.rar
+*.jpg
+*.jpeg
+*.png
+*.heic
+*.tif
+*.tiff
+*.webp
 submissions/
 student-submissions/
 students/
@@ -12,3 +24,6 @@ private/
 __pycache__/
 *.py[cod]
 .DS_Store
+# Raw student inputs and source-to-alias maps should remain ignored.
+private/discovery-source-map*
+discovery-source-map*

@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "description": "Copy canonical public Proof Atlas workflow into an instructor-owned repository, without website sources.",
   "files": [
     {
@@ -37,6 +37,14 @@
     {
       "source": "templates/instructor-workspace/assignment-policy.template.yaml",
       "destination": "templates/assignment-policy.template.yaml"
+    },
+    {
+      "source": "workflow/preaudit-discovery.md",
+      "destination": "prompts/preaudit-discovery.md"
+    },
+    {
+      "source": "templates/instructor-workspace/discovery-report.template.md",
+      "destination": "templates/discovery-report.template.md"
     },
     {
       "source": "workflow/generate-solution-graph.md",
