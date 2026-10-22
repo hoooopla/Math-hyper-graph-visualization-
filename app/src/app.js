@@ -707,6 +707,7 @@ function loadSource(source, name) {
 }
 
 function activateDocument(key) {
+  state.inlineEdit = null;
   state.inspectorMode = "read";
   state.commentComposerOpen = false;
   const current = activeDoc();
@@ -727,6 +728,36 @@ function activateDocument(key) {
 async function loadFiles(files) {
   for (const file of files) if (/\.ya?ml$/i.test(file.name)) loadSource(await file.text(), file.name);
   fileInput.value = "";
+}
+
+function applyInlineField(input) {
+  const doc = activeDoc();
+  if (!doc?.report.graph) return false;
+  const { editKind: kind, editId: id, editField: field } = input.dataset;
+  const candidate = structuredClone(doc.report.graph);
+  const target = kind === "problem" ? candidate.problem : candidate[kind]?.find((item) => item.id === id);
+  if (!target) return false;
+  const previous = target[field];
+  const next = Array.isArray(previous) || ["required_hypotheses", "from", "uses", "obligations"].includes(field)
+    ? input.value.split("\n").map((line) => line.trim()).filter(Boolean) : input.value;
+  target[field] = next;
+  if (kind === "nodes" && (field === "claim" || field === "assertion")) {
+    target.assertion = next;
+    target.claim = next;
+  }
+  const report = validateGraph(candidate);
+  if (report.errors.length) {
+    const errorText = input.closest(".inline-editor")?.querySelector(".inline-error");
+    if (errorText) {
+      errorText.textContent = report.errors.slice(0, 2).map((issue) => issue.path + ": " + issue.message).join(" ");
+      errorText.hidden = false;
+    }
+    return false;
+  }
+  state.inlineEdit = null;
+  updateField(input);
+  renderInspector();
+  return true;
 }
 
 function updateField(input) {
@@ -840,8 +871,30 @@ root.addEventListener("click", async (event) => {
   if (action === "inspector-mode") {
     state.inspectorMode = event.target.closest("[data-mode]")?.dataset.mode === "edit" ? "edit" : "read";
     state.commentComposerOpen = false;
-    inspector.scrollTop = 0;
+    state.inlineEdit = null;
+    const previousScroll = inspector.scrollTop;
     renderInspector();
+    inspector.scrollTop = previousScroll;
+    return;
+  }
+  if (action === "edit-inline") {
+    state.inlineEdit = event.target.closest("[data-inline-key]")?.dataset.inlineKey ?? null;
+    const previousScroll = inspector.scrollTop;
+    renderInspector();
+    inspector.scrollTop = previousScroll;
+    inspector.querySelector("[data-inline-field]")?.focus();
+    return;
+  }
+  if (action === "cancel-inline-edit") {
+    state.inlineEdit = null;
+    const previousScroll = inspector.scrollTop;
+    renderInspector();
+    inspector.scrollTop = previousScroll;
+    return;
+  }
+  if (action === "save-inline-edit") {
+    const input = event.target.closest(".inline-editor")?.querySelector("[data-inline-field]");
+    if (input) applyInlineField(input);
     return;
   }
   if (action === "inspector-comment") {
@@ -905,6 +958,7 @@ root.addEventListener("click", async (event) => {
   const selection = event.target.closest("[data-select-id]");
   if (selection) {
     state.inspectorMode = "read";
+    state.inlineEdit = null;
     state.commentComposerOpen = false;
     inspector.scrollTop = 0;
     state.selection = { type: selection.dataset.selectType, id: selection.dataset.selectId };
@@ -925,6 +979,7 @@ root.addEventListener("click", async (event) => {
     state.activePath = state.activePath === index ? null : index;
     state.selection = state.activePath === null ? { type: "context", id: "problem" } : { type: "path", id: String(index) };
     state.inspectorMode = "read";
+    state.inlineEdit = null;
     state.commentComposerOpen = false;
     inspector.scrollTop = 0;
     if (window.innerWidth <= 760 && state.activePath !== null) state.mobilePanel = "inspector";
@@ -976,7 +1031,7 @@ root.addEventListener("change", (event) => {
     event.target.checked ? doc.verification.paths.set(key, pathFingerprint(graph, path)) : doc.verification.paths.delete(key);
     saveVerification(doc); renderSidebar(); renderInspector(); return;
   }
-  if (event.target.matches("[data-edit-field]")) { updateField(event.target); return; }
+  if (event.target.matches("[data-edit-field]:not([data-inline-field])")) { updateField(event.target); return; }
   if (event.target.matches("[data-compare]")) {
     state.compare[event.target.dataset.compare] = event.target.value;
     state.selection = { type: "validation", id: "report" };
@@ -999,7 +1054,11 @@ root.addEventListener("change", (event) => {
 });
 
 root.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !workflowModal.hidden) hideWorkflow();
+  if (event.key === "Escape" && !workflowModal.hidden) { hideWorkflow(); return; }
+  if (event.key === "Escape" && state.inlineEdit) {
+    state.inlineEdit = null;
+    renderInspector();
+  }
 });
 
 fileInput.addEventListener("change", () => loadFiles([...fileInput.files]));
