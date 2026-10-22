@@ -34,8 +34,9 @@ function valueHtml(value, { mathHtml, escapeHtml }) {
 }
 
 function heading(kind, title, escapeHtml) {
-  return '<div class="inspector-kicker">Reference · ' + escapeHtml(kind)
-    + '</div><h2 class="context-heading">' + escapeHtml(title) + '</h2>';
+  return '<header class="reading-header context-reading-header">'
+    + '<div class="reading-header-label">Reference · ' + escapeHtml(kind) + '</div>'
+    + '<h2 class="context-heading">' + escapeHtml(title) + '</h2></header>';
 }
 
 function theoremCard(theorem, graph, api) {
@@ -60,31 +61,31 @@ export function contextInspectorHtml(graph, id, api) {
   if (id === "problem") {
     const problem = graph.problem ?? {};
     const extras = Object.entries(problem).filter(([key]) => !["id", "title", "statement", "source", "ambiguities"].includes(key));
-    return '<div class="inspector-content context-inspector">'
+    return '<div class="inspector-content context-inspector reading-inspector">'
       + heading("problem", problem.title || problem.id || "Problem", escapeHtml)
-      + '<div class="reference-id">' + escapeHtml(problem.id ?? "") + '</div>'
+      + '<div class="reading-body"><div class="reference-id">' + escapeHtml(problem.id ?? "") + '</div>'
       + detail("Statement", '<div class="math-text">' + mathHtml(problem.statement ?? "") + '</div>', "important")
       + (problem.source !== undefined ? detail("Source", valueHtml(problem.source, api)) : "")
       + detail("Ambiguities", valueHtml(problem.ambiguities ?? [], api))
       + extras.map(([key, val]) => detail(key, valueHtml(val, api))).join("")
       + detail("YAML schema", '<code>' + escapeHtml(graph.schema_version ?? "Unknown") + '</code>')
-      + '</div>';
+      + '</div></div>';
   }
   if (id === "notation") {
     const notation = graph.canonical_notation ?? {};
     return '<div class="inspector-content context-inspector">'
       + heading("notation", "Canonical notation", escapeHtml)
-      + detail("Definitions", valueHtml(notation, api), "important")
-      + '</div>';
+      + '<div class="reading-body">' + detail("Definitions", valueHtml(notation, api), "important")
+      + '</div></div>';
   }
   if (id === "theorems") {
     const theorems = graph.theorems ?? [];
     return '<div class="inspector-content context-inspector">'
       + heading("theorems", "Theorem library", escapeHtml)
-      + detail(`${theorems.length} reference${theorems.length === 1 ? "" : "s"}`,
+      + '<div class="reading-body">' + detail(`${theorems.length} reference${theorems.length === 1 ? "" : "s"}`,
         theorems.length ? theorems.map((theorem) => theoremCard(theorem, graph, api)).join("")
           : '<span class="empty-note">No theorem references recorded.</span>', "important")
-      + '</div>';
+      + '</div></div>';
   }
   return '<div class="inspector-empty"><p>Unknown reference section.</p></div>';
 }
@@ -92,9 +93,9 @@ export function contextInspectorHtml(graph, id, api) {
 export function theoremInspectorHtml(graph, theoremId, api) {
   const theorem = (graph.theorems ?? []).find((item) => item.id === theoremId);
   if (!theorem) return '<div class="inspector-empty"><p>Theorem not found.</p></div>';
-  return '<div class="inspector-content context-inspector">'
+  return '<div class="inspector-content context-inspector reading-inspector">'
     + heading("theorem", theorem.id, api.escapeHtml)
-    + theoremCard(theorem, graph, api)
-    + '</div>';
+    + '<div class="reading-body">' + theoremCard(theorem, graph, api)
+    + '</div></div>';
 }
 

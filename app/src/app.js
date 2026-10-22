@@ -22,6 +22,8 @@ const state = {
   compare: null,
   exportOpen: false,
   showIds: localStorage.getItem("proof-atlas-show-ids") === "true",
+  inspectorMode: "read",
+  commentComposerOpen: false,
 };
 
 root.innerHTML = `
@@ -123,7 +125,7 @@ async function showWorkflow() {
     workflowMessage.textContent = "Use this prompt in your own GPT Work conversation.";
     workflowLoaded = true;
   } catch {
-    workflowMessage.textContent = "Could not load the setup prompt. Open prompts/start-with-gpt-work.md in the public GitHub repository.";
+    workflowMessage.textContent = "Could not load the setup prompt. Open workflow/start-with-gpt-work.md in the public GitHub repository.";
   }
 }
 
@@ -292,8 +294,8 @@ function renderInspector() {
   const graph = state.report.graph;
   const selection = state.selection;
   const close = `<button class="mobile-close" data-mobile="close" aria-label="Close details">${icon("close")}</button>`;
-  if (state.selection?.type === "difference" && state.compare) {
-    inspector.innerHTML = close + differenceInspector(state.selection.id);
+  if (selection?.type === "difference" && state.compare) {
+    inspector.innerHTML = close + differenceInspector(selection.id);
     return;
   }
   if (selection?.type === "validation") {
@@ -332,19 +334,91 @@ function editable(kind, id, field, label, value, multiline = true) {
   const attr = `data-edit-kind="${escapeAttribute(kind)}" data-edit-id="${escapeAttribute(id)}" data-edit-field="${escapeAttribute(field)}"`;
   return `<label class="editable-field"><span>${escapeHtml(label)}</span>${multiline ? `<textarea rows="${Math.max(3, Math.min(7, text.split("\n").length + 1))}" ${attr}>${escapeHtml(text)}</textarea>` : `<input value="${escapeAttribute(text)}" ${attr}>`}<div class="edit-preview math-text">${mathHtml(text) || "<em>Empty</em>"}</div></label>`;
 }
+
+function inspectorHeader(kind, title, id, { verification, verified = false, commentType, canEdit = true } = {}) {
+  const editing = state.inspectorMode === "edit";
+  const comments = activeDoc()?.comments?.filter((item) => item.type === commentType && item.id === id).length ?? 0;
+  return `<header class="reading-header">
+    <div class="reading-header-label">${escapeHtml(kind)} <span class="reading-header-id">${copyId(id)}</span></div>
+    <h2>${mathHtml(title)}</h2>
+    <div class="reading-actions">
+      ${verification ? `<label class="reading-verify" title="Mark this ${escapeAttribute(kind.toLowerCase())} as mathematically reviewed"><input type="checkbox" data-verify-${verification}="${escapeAttribute(id)}" ${verified ? "checked" : ""}><span>${verified ? "Verified" : "Verify"}</span></label>` : ""}
+      ${canEdit ? `<button type="button" class="reading-action ${editing ? "active" : ""}" data-action="inspector-mode" data-mode="${editing ? "read" : "edit"}" aria-pressed="${editing}">${editing ? "Done editing" : "Edit"}</button>` : ""}
+      ${commentType ? `<button type="button" class="reading-action ${state.commentComposerOpen ? "active" : ""}" data-action="inspector-comment" aria-expanded="${state.commentComposerOpen}">Comment${comments ? ` <span class="comment-count">${comments}</span>` : ""}</button>` : ""}
+    </div>
+  </header>`;
+}
+
+function readingSection(title, html, extraClass = "") {
+  return `<section class="reading-section ${extraClass}"><h3>${escapeHtml(title)}</h3>${html}</section>`;
+}
+
+function renderedMath(value) {
+  return `<div class="reading-math math-text">${mathHtml(value ?? "")}</div>`;
+}
+
 function commentBox(type, id, field = "general") {
-  const doc = activeDoc();
-  const comments = doc.comments.filter((item) => item.type === type && item.id === id);
-  return `<section class="comment-block"><h3>Review comments</h3>${comments.map((item) => `<div class="comment-item"><strong>${escapeHtml(item.field)}</strong><p>${escapeHtml(item.text)}</p><button data-remove-comment="${item.key}" aria-label="Remove comment">×</button></div>`).join("")}<label>Field<select data-comment-field>${["general", "claim", "method", "justification", "statement", "pattern", "defect", "required_hypotheses", "obligations"].map((option) => `<option ${option === field ? "selected" : ""}>${option}</option>`).join("")}</select></label><textarea data-comment-text placeholder="What should GPT Work check or change?"></textarea><button class="header-action" data-add-comment="${escapeAttribute(type)}:${escapeAttribute(id)}">Add comment</button></section>`;
+  const comments = activeDoc().comments.filter((item) => item.type === type && item.id === id);
+  if (!comments.length && !state.commentComposerOpen) return "";
+  return `<section class="comment-block" id="inspector-comments"><h3>Review comments ${comments.length ? `<span class="comment-count">${comments.length}</span>` : ""}</h3>
+    ${comments.map((item) => `<div class="comment-item"><strong>${escapeHtml(item.field)}</strong><p>${escapeHtml(item.text)}</p><button data-remove-comment="${escapeAttribute(item.key)}" aria-label="Remove comment">×</button></div>`).join("")}
+    ${state.commentComposerOpen ? `<div class="comment-composer"><label>Comment on<select data-comment-field>${["general", "claim", "method", "justification", "statement", "pattern", "defect", "required_hypotheses", "obligations"].map((option) => `<option ${option === field ? "selected" : ""}>${option}</option>`).join("")}</select></label><textarea data-comment-text placeholder="What should GPT Work check or change?"></textarea><button class="header-action" data-add-comment="${escapeAttribute(type)}:${escapeAttribute(id)}">Add comment</button></div>` : ""}
+  </section>`;
 }
+
+function editHint() {
+  return `<p class="inspector-edit-hint">You are editing this local draft. Each changed field updates the graph; review the differences before exporting.</p>`;
+}
+
 function problemEditor(graph) {
-  return `<div class="inspector-content"><div class="inspector-kicker">Reference · problem</div>${editable("problem", "problem", "title", "Title", graph.problem?.title, false)}${editable("problem", "problem", "statement", "Statement", graph.problem?.statement)}${commentBox("problem", "problem", "statement")}</div>`;
+  const problem = graph.problem ?? {};
+  const body = state.inspectorMode === "edit"
+    ? editHint() + editable("problem", "problem", "title", "Title", problem.title, false)
+      + editable("problem", "problem", "statement", "Problem statement", problem.statement)
+    : readingSection("Problem statement", renderedMath(problem.statement), "reading-hero");
+  const source = problem.source ? readingSection("Source",
+    typeof problem.source === "object" && problem.source !== null
+      ? Object.entries(problem.source).map(([key, value]) =>
+          `<div class="reading-meta-row"><strong>${escapeHtml(key)}</strong><span class="math-text">${mathHtml(formatValue(value))}</span></div>`).join("")
+      : renderedMath(problem.source)) : "";
+  const extras = Object.entries(problem)
+    .filter(([key]) => !["id", "title", "statement", "source", "ambiguities"].includes(key));
+  const metadata = `<details class="reading-disclosure"><summary>Problem metadata <span>schema ${escapeHtml(graph.schema_version ?? "unknown")}</span></summary>
+    ${extras.map(([key, value]) => `<div class="reading-meta-row"><strong>${escapeHtml(key)}</strong><span class="math-text">${mathHtml(formatValue(value))}</span></div>`).join("")}
+    <div class="reading-meta-row"><strong>Problem ID</strong><span>${escapeHtml(problem.id ?? "—")}</span></div>
+    <div class="reading-meta-row"><strong>Schema</strong><span>${escapeHtml(graph.schema_version ?? "unknown")}</span></div>
+  </details>`;
+  const ambiguities = problem.ambiguities?.length
+    ? readingSection("Open interpretations", `<ul class="reading-bullets">${problem.ambiguities.map((a) => `<li class="math-text">${mathHtml(a)}</li>`).join("")}</ul>`)
+    : "";
+  return `<div class="inspector-content reading-inspector">
+    ${inspectorHeader("Problem", problem.title || "Problem statement", "problem", { commentType: "problem" })}
+    <div class="reading-body">${body}${ambiguities}${source}${metadata}${commentBox("problem", "problem", "statement")}</div>
+  </div>`;
 }
+
 function theoremEditor(graph, id) {
-  const item = graph.theorems.find((entry) => entry.id === id);
+  const item = graph.theorems?.find((entry) => entry.id === id);
   if (!item) return `<div class="inspector-empty">Theorem unavailable.</div>`;
-  return `<div class="inspector-content"><div class="inspector-kicker">Theorem</div>${copyId(id)}${editable("theorems", id, "statement", "Statement", item.statement)}${editable("theorems", id, "required_hypotheses", "Required hypotheses · one per line", item.required_hypotheses ?? [])}${editable("theorems", id, "source", "Source", item.source)}${commentBox("theorem", id, "statement")}</div>`;
+  const usedBy = graph.edges.filter((edge) => (edge.uses ?? []).includes(id));
+  const body = state.inspectorMode === "edit"
+    ? editHint() + editable("theorems", id, "statement", "Theorem statement", item.statement)
+      + editable("theorems", id, "required_hypotheses", "Required hypotheses · one per line", item.required_hypotheses ?? [])
+      + editable("theorems", id, "source", "Source", item.source)
+    : readingSection("Theorem statement", renderedMath(item.statement), "reading-hero")
+      + readingSection("Required hypotheses", item.required_hypotheses?.length
+        ? `<ol class="reading-bullets">${item.required_hypotheses.map((h) => `<li class="math-text">${mathHtml(h)}</li>`).join("")}</ol>`
+        : `<p class="reading-hint">No hypotheses specified in this graph.</p>`)
+      + (item.source ? readingSection("Reference", `<p class="reading-prose">${escapeHtml(formatValue(item.source))}</p>`) : "");
+  return `<div class="inspector-content reading-inspector">
+    ${inspectorHeader("Theorem", "Theorem reference", id, { commentType: "theorem" })}
+    <div class="reading-body">${body}
+      ${usedBy.length ? `<details class="reading-disclosure"><summary>Used by inferences <span>${usedBy.length}</span></summary>${linkList("", usedBy, "edge")}</details>` : ""}
+      ${commentBox("theorem", id, "statement")}
+    </div>
+  </div>`;
 }
+
 function differenceInspector(key) {
   const before = state.documents.find((doc) => doc.key === state.compare.before)?.report.graph;
   const after = state.documents.find((doc) => doc.key === state.compare.after)?.report.graph;
@@ -374,25 +448,84 @@ function validationInspectorHtml() {
   </div>`;
 }
 
+function mistakeCards(mistakes, allowNavigation = true) {
+  return mistakes.map((mistake, index) => `<article class="reading-mistake-case">
+    <header class="reading-mistake-top">
+      <span class="reading-mistake-number">${String(index + 1).padStart(2, "0")}</span>
+      <span class="reading-mistake-category">${escapeHtml((mistake.category ?? "common mistake").replaceAll("_", " "))}</span>
+      ${allowNavigation ? `<button type="button" class="reading-reference-link" data-select-type="mistake" data-select-id="${escapeAttribute(mistake.id)}">Inspect ↗</button>` : ""}
+    </header>
+    <div class="reading-false-move">
+      <span class="reading-mini-label">Incorrect move</span>
+      ${renderedMath(mistake.pattern)}
+    </div>
+    <div class="reading-diagnosis">
+      <span class="reading-mini-label">Why it fails</span>
+      <div class="reading-prose math-text">${mathHtml(mistake.defect)}</div>
+    </div>
+  </article>`).join("");
+}
+
+function mistakesSection(mistakes) {
+  return `<section class="reading-section reading-pitfalls" aria-label="Common mistakes">
+    <div class="reading-section-heading">
+      <h3>Common mistakes</h3>
+      <span class="reading-count ${mistakes.length ? "has-mistakes" : ""}">${mistakes.length} ${mistakes.length === 1 ? "pitfall" : "pitfalls"}</span>
+    </div>
+    ${mistakes.length ? mistakeCards(mistakes) : `<p class="reading-hint">No common mistakes have been recorded for this step.</p>`}
+  </section>`;
+}
+
+function statementLink(node, label) {
+  return `<button type="button" class="reading-statement-link" data-select-type="node" data-select-id="${escapeAttribute(node.id)}">
+    <span class="reading-statement-id">${escapeHtml(label)} <span>↗ ${escapeHtml(node.id)}</span></span>
+    ${renderedMath(node.assertion ?? node.claim)}
+  </button>`;
+}
+
 function mistakeInspector(graph, id) {
   const mistake = graph.mistakes?.find((item) => item.id === id);
   if (!mistake) return `<div class="inspector-empty"><p>Mistake reference not found.</p></div>`;
   const related = (mistake.related_edges ?? [])
     .map((edgeId) => graph.edges.find((edge) => edge.id === edgeId)).filter(Boolean);
-  return `<div class="inspector-content"><div class="inspector-kicker">Common mistake</div>
-    ${copyId(mistake.id)}${editable("mistakes", id, "category", "Category", mistake.category, false)}
-    ${editable("mistakes", id, "pattern", "Mistaken pattern", mistake.pattern)}
-    ${editable("mistakes", id, "defect", "Why it fails", mistake.defect)}
-    ${detail("Related inferences", linkList("", related, "edge"))}
-    ${commentBox("mistake", id, "pattern")}
+  const body = state.inspectorMode === "edit"
+    ? editHint() + editable("mistakes", id, "category", "Category", mistake.category, false)
+      + editable("mistakes", id, "pattern", "Incorrect argument or pattern", mistake.pattern)
+      + editable("mistakes", id, "defect", "Mathematical defect", mistake.defect)
+    : mistakeCards([mistake], false);
+  return `<div class="inspector-content reading-inspector">
+    ${inspectorHeader("Common mistake", "Why this argument fails", id, { commentType: "mistake" })}
+    <div class="reading-body">
+      ${body}
+      ${related.length ? `<details class="reading-disclosure"><summary>Related valid inferences <span>${related.length}</span></summary>${linkList("", related, "edge")}</details>` : ""}
+      ${commentBox("mistake", id, "pattern")}
+    </div>
   </div>`;
 }
 
 function nodeInspector(graph, node) {
   const incoming = graph.edges.filter((edge) => edge.to === node.id);
   const outgoing = graph.edges.filter((edge) => edge.from.includes(node.id));
+  const affected = [...new Map([...incoming, ...outgoing].flatMap((edge) =>
+    getRelatedMistakes(graph, edge.id)).map((mistake) => [mistake.id, mistake])).values()];
   const verified = activeDoc().verification.nodes.get(node.id) === nodeFingerprint(graph, node.id);
-  return `<div class="inspector-content"><div class="inspector-kicker"><span class="type-dot ${node.type}"></span>${node.type} assertion</div>${copyId(node.id)}<label class="verify-node"><input type="checkbox" data-verify-node="${escapeAttribute(node.id)}" ${verified ? "checked" : ""}><span>${icon("check", 16)} Verified assertion</span></label>${editable("nodes", node.id, "claim", "Claim", node.claim)}${node.scope ? detail("Scope / local assumptions", mathHtml(formatValue(node.scope)), "important") : ""}${detail("Proof dependencies", `${linkList("Incoming", incoming, "edge")}${linkList("Outgoing", outgoing, "edge")}`)}${commentBox("node", node.id, "claim")}</div>`;
+  const body = state.inspectorMode === "edit"
+    ? editHint() + editable("nodes", node.id, "assertion", "Mathematical assertion", node.assertion ?? node.claim)
+    : readingSection("Mathematical assertion", renderedMath(node.assertion ?? node.claim), "reading-hero");
+  return `<div class="inspector-content reading-inspector">
+    ${inspectorHeader(node.type, "Assertion", node.id, { verification: "node", verified, commentType: "node" })}
+    <div class="reading-body">
+      ${body}
+      ${node.scope ? readingSection("Scope / local assumptions", renderedMath(formatValue(node.scope)), "reading-scope") : ""}
+      ${mistakesSection(affected)}
+      <details class="reading-disclosure">
+        <summary>Connected inferences <span>${incoming.length} incoming · ${outgoing.length} outgoing</span></summary>
+        ${linkList("Leading to this assertion", incoming, "edge")}
+        ${linkList("Using this assertion", outgoing, "edge")}
+      </details>
+      ${commentBox("node", node.id, "assertion")}
+    </div>
+  </div>`;
 }
 
 function edgeInspector(graph, edge) {
@@ -401,7 +534,39 @@ function edgeInspector(graph, edge) {
   const theorems = (edge.uses ?? []).map((id) => graph.theorems.find((theorem) => theorem.id === id)).filter(Boolean);
   const mistakes = getRelatedMistakes(graph, edge.id);
   const verified = activeDoc().verification.edges.get(edge.id) === edgeFingerprint(graph, edge.id);
-  return `<div class="inspector-content"><div class="inspector-kicker edge">${icon("branch", 14)}inference</div>${copyId(edge.id)}<label class="verify-node"><input type="checkbox" data-verify-edge="${escapeAttribute(edge.id)}" ${verified ? "checked" : ""}><span>${icon("check", 16)} Verified inference</span></label>${editable("edges", edge.id, "method", "Method", edge.method, false)}${detail("From · all required", linkList("", sources, "node"), "important")}${detail("To", linkList("", target ? [target] : [], "node"), "important")}${editable("edges", edge.id, "justification", "Justification", edge.justification)}${edge.obligations ? editable("edges", edge.id, "obligations", "Obligations · one per line", edge.obligations) : ""}${edge.scope ? detail("Scope / local assumptions", mathHtml(formatValue(edge.scope)), "important") : ""}${theorems.length ? detail("Theorems", theorems.map((theorem) => `<article class="theorem-card"><button type="button" class="reference-link" data-select-type="theorem" data-select-id="${escapeAttribute(theorem.id)}">${escapeHtml(theorem.id)} ↗</button><span class="math-text">${mathHtml(theorem.statement)}</span></article>`).join("")) : ""}${mistakes.length ? detail("Common mistakes", mistakes.map((mistake) => `<article class="mistake-card"><header class="mistake-header"><span class="mistake-category">${icon("warning", 16)}${escapeHtml(mistake.category)}</span><button type="button" class="reference-link mistake-id" data-select-type="mistake" data-select-id="${escapeAttribute(mistake.id)}">Edit ${escapeHtml(mistake.id)} ↗</button></header><section class="mistake-section"><strong>Mistaken pattern</strong><div class="math-text mistake-pattern">${mathHtml(mistake.pattern)}</div></section><section class="mistake-section defect"><strong>Why it fails</strong><div class="math-text">${mathHtml(mistake.defect)}</div></section></article>`).join("")) : ""}${commentBox("edge", edge.id, "justification")}</div>`;
+  const editing = state.inspectorMode === "edit";
+
+  const flow = `<section class="reading-section reading-inference-flow" aria-label="Mathematical inference">
+    <div class="reading-flow-label">${sources.length > 1 ? `All ${sources.length} assumptions are required (AND)` : "Required assumption"}</div>
+    <div class="reading-source-stack">${sources.map((node, index) => statementLink(node, sources.length > 1 ? `Assumption ${index + 1}` : "Source")).join("")}</div>
+    <div class="reading-flow-arrow" aria-label="Implies"><span>↓</span><small>Therefore</small></div>
+    ${target ? statementLink(target, "Conclusion") : `<span class="reading-hint">Conclusion unavailable.</span>`}
+  </section>`;
+  const reasoning = readingSection("Why this follows",
+    renderedMath(edge.justification) +
+    (edge.obligations?.length ? `<div class="reading-obligations"><span class="reading-mini-label">Proof obligations</span>${renderedMath(formatValue(edge.obligations))}</div>` : ""),
+    "reading-reasoning");
+  const edits = editHint()
+    + editable("edges", edge.id, "method", "Inference method", edge.method, false)
+    + editable("edges", edge.id, "from", "Sources · one node ID per line", edge.from)
+    + editable("edges", edge.id, "to", "Conclusion · node ID", edge.to, false)
+    + editable("edges", edge.id, "justification", "Mathematical justification", edge.justification)
+    + editable("edges", edge.id, "uses", "Theorems · one ID per line", edge.uses ?? [])
+    + (edge.obligations ? editable("edges", edge.id, "obligations", "Obligations · one per line", edge.obligations) : "");
+
+  return `<div class="inspector-content reading-inspector">
+    ${inspectorHeader("Inference", edge.method || "Inference step", edge.id, { verification: "edge", verified, commentType: "edge" })}
+    <div class="reading-body">
+      ${editing ? edits : flow + reasoning}
+      ${mistakesSection(mistakes)}
+      ${edge.scope ? readingSection("Scope / local assumptions", renderedMath(formatValue(edge.scope)), "reading-scope") : ""}
+      ${theorems.length ? readingSection("Theorems used",
+        theorems.map((theorem) => `<button type="button" class="reading-theorem-link" data-select-type="theorem" data-select-id="${escapeAttribute(theorem.id)}"><span>${escapeHtml(theorem.id)} ↗</span><div class="math-text">${mathHtml(theorem.statement)}</div></button>`).join(""),
+        "reading-references") : ""}
+      ${editing ? `<details class="reading-disclosure"><summary>Preview mathematical inference</summary>${flow}${reasoning}</details>` : ""}
+      ${commentBox("edge", edge.id, "justification")}
+    </div>
+  </div>`;
 }
 
 function detail(title, content, priority = "") { return `<section class="detail-block ${priority}"><h3>${escapeHtml(title)}</h3>${content}</section>`; }
@@ -422,6 +587,8 @@ function loadSource(source, name) {
 }
 
 function activateDocument(key) {
+  state.inspectorMode = "read";
+  state.commentComposerOpen = false;
   const current = activeDoc();
   if (current) { if (state.selection?.type !== "difference") current.selection = state.selection; current.view = { ...state.view }; current.goalId = state.goalId; }
   const doc = state.documents.find((entry) => entry.key === key);
@@ -448,11 +615,14 @@ function updateField(input) {
   const target = kind === "problem" ? graph.problem : graph[kind]?.find((item) => item.id === id);
   if (!target) return;
   const old = target[field];
-  const value = Array.isArray(old) || field === "required_hypotheses"
+  const value = Array.isArray(old) || ["required_hypotheses", "from", "uses", "obligations"].includes(field)
     ? input.value.split("\n").map((line) => line.trim()).filter(Boolean) : input.value;
   if (JSON.stringify(old) === JSON.stringify(value)) return;
   target[field] = value;
-  if (kind === "nodes" && field === "claim") target.assertion = value;
+  if (kind === "nodes" && (field === "claim" || field === "assertion")) {
+    target.assertion = value;
+    target.claim = value; // Legacy viewer alias; assertion remains the canonical YAML field.
+  }
   doc.report = { graph, ...validateGraph(graph) };
   state.report = doc.report;
   doc.reviewed.clear();
@@ -547,6 +717,22 @@ root.addEventListener("click", async (event) => {
     }
     return;
   }
+  if (action === "inspector-mode") {
+    state.inspectorMode = event.target.closest("[data-mode]")?.dataset.mode === "edit" ? "edit" : "read";
+    state.commentComposerOpen = false;
+    inspector.scrollTop = 0;
+    renderInspector();
+    return;
+  }
+  if (action === "inspector-comment") {
+    state.commentComposerOpen = !state.commentComposerOpen;
+    renderInspector();
+    if (state.commentComposerOpen) {
+      inspector.querySelector("#inspector-comments")?.scrollIntoView({ block: "nearest" });
+      inspector.querySelector("[data-comment-text]")?.focus();
+    }
+    return;
+  }
   if (action === "upload") fileInput.click();
   if (action === "compare") {
     state.exportOpen = false;
@@ -564,7 +750,7 @@ root.addEventListener("click", async (event) => {
   const tab = event.target.closest("[data-tab]");
   if (tab) { state.compare = null; activateDocument(tab.dataset.tab); return; }
   const difference = event.target.closest("[data-difference]");
-  if (difference) { state.selection = { type: "difference", id: difference.dataset.difference }; if (window.innerWidth <= 760) { state.mobilePanel = "inspector"; inspector.classList.add("mobile-open"); } renderInspector(); workspace.querySelectorAll(".review-row").forEach((row) => row.classList.toggle("selected", row === difference)); return; }
+  if (difference) { state.inspectorMode = "read"; state.commentComposerOpen = false; state.selection = { type: "difference", id: difference.dataset.difference }; if (window.innerWidth <= 760) { state.mobilePanel = "inspector"; inspector.classList.add("mobile-open"); } renderInspector(); workspace.querySelectorAll(".review-row").forEach((row) => row.classList.toggle("selected", row === difference)); return; }
   const review = event.target.closest("[data-review]");
   if (review) {
     const revised = state.documents.find((doc) => doc.key === state.compare.after);
@@ -578,6 +764,7 @@ root.addEventListener("click", async (event) => {
     if (text) {
       const [type, ...id] = addComment.dataset.addComment.split(":");
       activeDoc().comments.push({ key: String(Date.now()) + Math.random(), type, id: id.join(":"), field: inspector.querySelector("[data-comment-field]").value, text });
+      state.commentComposerOpen = false;
       renderTabs(); renderInspector();
     }
     return;
@@ -597,6 +784,9 @@ root.addEventListener("click", async (event) => {
   if (action === "zoom-out") zoom(.87);
   const selection = event.target.closest("[data-select-id]");
   if (selection) {
+    state.inspectorMode = "read";
+    state.commentComposerOpen = false;
+    inspector.scrollTop = 0;
     state.selection = { type: selection.dataset.selectType, id: selection.dataset.selectId };
     if (state.selection.type === "edge" || state.selection.type === "node") state.activePath = null;
     if (state.selection.type === "node") {
