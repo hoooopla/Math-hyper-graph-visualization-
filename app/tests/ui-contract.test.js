@@ -36,7 +36,7 @@ test("public workflow entry loads copyable GPT Work prompt separately from graph
   const build = await readFile(new URL("../../scripts/build.mjs", import.meta.url), "utf8");
   assert.match(app, /data-action="start-workflow"/);
   assert.match(app, /data-action="copy-workflow"/);
-  assert.match(app, /fetch\("\.\/prompts\/start-with-gpt-work\.md"\)/);
+  assert.match(app, /fetch\("\.\/workflow\/start-with-gpt-work\.md"\)/);
   assert.match(app, /aria-modal="true"/);
   assert.match(css, /workflow-overlay\[hidden\]/);
   assert.match(build, /start-with-gpt-work\.md/);
