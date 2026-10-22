@@ -703,3 +703,95 @@ button { color: inherit; }
 .context-inspector .reference-theorem .reference-source strong {
   color: #a9b6c8; font-size: 10px;
 }
+
+
+/* Inference audit: inspect premises -> transformation -> conclusion before the argument. */
+.reading-edge-inspector .reading-inference-flow {
+  padding-top: 24px;
+  padding-bottom: 29px;
+}
+.reading-edge-inspector .reading-inference-flow > h3 {
+  margin: 0 0 11px; color: #cbd6e5; font-size: 12px; font-weight: 750;
+}
+.reading-edge-inspector .reading-flow-label { margin-bottom: 12px; color: #9baebd; }
+.reading-inference-transition {
+  display: grid; justify-items: center; gap: 5px;
+  padding: 5px 6px 8px;
+}
+.reading-inference-transition .reading-flow-arrow {
+  display: block; min-height: auto; padding: 0; color: #bbd48a;
+  font: 22px/1 Georgia, serif;
+}
+.reading-method-card {
+  display: grid; justify-items: center; gap: 7px;
+  width: min(100%, 360px); padding: 12px 15px;
+  border: 1px solid #5e7854; border-radius: 8px;
+  background: #202e22; color: #e7f8e4;
+  text-align: center;
+}
+.reading-method-card .reading-mini-label { color: #bcd29f; }
+.reading-method-name {
+  color: #f1fae5;
+  font: 650 15px/1.65 ui-sans-serif, system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+.reading-method-name .katex-display { max-width: 100%; overflow-x: auto; }
+.reading-edge-inspector .reading-inference-transition + h3 { margin: 7px 0 11px; }
+.reading-edge-inspector .reading-inference-transition + h3 + .reading-statement-link {
+  border-left: 3px solid var(--accent);
+  border-color: #617f44;
+  background: #182319;
+}
+.reading-edge-inspector .reading-reasoning { padding: 24px 0 27px; }
+.reading-edge-inspector .reading-reasoning > .reading-math { font-size: 15.5px; }
+.reading-hypotheses {
+  display: grid; gap: 7px; padding: 13px 12px 15px;
+  border: 1px solid #353b4b; border-top: 0;
+  border-radius: 0 0 6px 6px;
+  color: #d9e1eb; background: #101620;
+}
+.reading-hypotheses strong {
+  color: #d0d9e5;
+  font: 700 11px/1.4 ui-sans-serif, system-ui, sans-serif;
+}
+.reading-hypotheses .reading-bullets { margin: 1px 0 0; font-size: 13px; line-height: 1.75; }
+.reading-theorem-reference + .reading-theorem-reference { margin-top: 13px; }
+.reading-theorem-reference .reading-theorem-link { border-radius: 6px 6px 0 0; }
+.reading-theorem-reference .reading-theorem-link > .math-text {
+  font: 14px/1.7 Georgia, serif;
+}
+.reading-audit-guide { margin-top: 16px; }
+.reading-checklist {
+  margin: 8px 0 13px; padding-left: 19px;
+  color: #d1dce8; font: 12px/1.7 ui-sans-serif, system-ui, sans-serif;
+}
+.reading-checklist li + li { margin-top: 8px; }
+.reading-audit-guide .reading-hint { padding-bottom: 10px; }
+.reading-path-progress {
+  font: 10px/1.45 ui-sans-serif, system-ui, sans-serif;
+  color: #adbdca;
+}
+.reading-path-inspector .reading-statement-link + .reading-statement-link { margin-top: 9px; }
+.reading-path-step {
+  display: grid; grid-template-columns: 27px 1fr auto; align-items: center;
+  gap: 11px; width: 100%;
+  padding: 13px 10px; border: 0;
+  border-bottom: 1px solid #343e4d; background: transparent; color: #e2e8ef;
+  text-align: left; cursor: pointer;
+}
+.reading-path-step:hover, .reading-path-step:focus-visible {
+  border-radius: 5px; background: #1b2526; outline: 1px solid #587a4b;
+}
+.reading-path-step-index { font: 700 11px/1.4 ui-monospace, monospace; color: #a4b3c1; }
+.reading-path-step strong { display: block; font: 650 14px/1.55 ui-sans-serif, system-ui, sans-serif; }
+.reading-path-step small {
+  display: block; margin-top: 5px;
+  font: 10px/1.5 ui-monospace, monospace; color: #96a2b1;
+  overflow-wrap: anywhere;
+}
+.reading-path-step > span:last-child { font-size: 15px; color: var(--accent); }
+@media (max-width: 760px) {
+  .reading-method-card { padding: 11px 12px; }
+  .reading-method-name { font-size: 14px; }
+  .reading-path-progress { flex-basis: 100%; }
+}
