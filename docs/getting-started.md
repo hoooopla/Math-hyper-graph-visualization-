@@ -1,31 +1,81 @@
-# Start Proof Atlas with GPT Work
+# Getting started with Proof Atlas and GPT Work
 
-The public [Proof Atlas repository](https://github.com/hoooopla/proof-atlas) contains the whole workflow. **Every instructor uses a separate repository** for their assignments and graphs.
+The [public Proof Atlas repository](https://github.com/hoooopla/proof-atlas)
+contains the viewer, mathematical format and GPT Work workflows. **Each
+instructor uses a separate GitHub repository** for their assignments.
 
-## Option A — GPT Work (recommended)
+## Option A — GPT Work
 
-1. Visit [Proof Atlas](https://hoooopla.github.io/proof-atlas/), click **Start Workflow**, and copy the instructions. You can also copy [the canonical starter prompt](../prompts/start-with-gpt-work.md).
-2. Open GPT Work. Grant its GitHub integration access to **your own** repository and attach a problem PDF. Work may create a private repo with your permission if that capability is available; otherwise, create one yourself and share its URL with Work.
-3. Work copies the [workspace manifest](../templates/instructor-workspace/manifest.json)'s specified workflow files from this public source, and validates the included synthetic example.
-4. Work independently analyzes the problems and **stops before committing graph YAML** to ask you which theorems may be **Cited**, must be **Derived**, or are **Excluded**, and which steps need explicit justification.
-5. Answer in that same GPT Work conversation. It must reverify and validate the revised graphs, then submit a reviewable PR in **your repository**. Review the graph and `verification.md` yourself before any merge.
+1. Open [Proof Atlas](https://hoooopla.github.io/proof-atlas/), choose
+   **Start Workflow**, and copy the setup text into GPT Work. The
+   [canonical starter prompt](../workflow/start-with-gpt-work.md)
+   is also available in this repository.
+2. Connect GPT Work to **your own** GitHub repository (preferably private)
+   and attach a problem PDF. If Work cannot create a repository or access
+   GitHub, create one manually and give Work its URL; never share credentials.
+3. GPT Work uses the [instructor manifest](../templates/instructor-workspace/manifest.json)
+   to copy only the relevant files into your repository. The public
+   `core/` and `workflow/` files become instructor-side
+   `SCHEMA.md`, `schema/`, `prompts/` and `scripts/`.
+4. Work independently analyzes the problems, then **pauses before
+   committing graph YAML** to ask which theorems may be **Cited**,
+   must be **Derived**, or are **Excluded**, and whether implicit
+   arguments need more justification.
+5. After your explicit decisions, Work re-verifies the proposed mathematics,
+   validates the YAML, and opens a PR containing `graph.yaml` and a
+   concise `verification.md` per problem. Review it before merging.
 
-The stop-and-ask instruction is not a GitHub permission rule: do not give the agent authority to merge mathematical changes. If Work cannot access GitHub or run Python, it must report the limitation rather than claim success.
+The pre-commit pause is a **prompt instruction**, not a GitHub permission
+rule. If Work cannot run the validation script, it must report that
+rather than claim a successful run.
 
-## Option B — create your private workspace locally
+## Option B — create a private workspace locally
 
-Download/clone this public repository, then run with Node.js 20+:
+Download or clone this public repository, then run Node.js 20+:
 
-```bash
+```sh
 node scripts/create-instructor-workspace.mjs ./my-instructor-workspace
 ```
 
-The script writes an independent starter into a **new directory** and refuses to overwrite an existing directory. Create a new private GitHub repository and push **only the generated workspace folder's contents**, preserving paths. Connect this new repository to GPT Work and proceed with step 4 above.
+The script creates only the instructor workspace files in a **new**
+directory, without frontend source files, and refuses to overwrite an
+existing directory. Push the resulting folder to your own private GitHub
+repository.
 
-## Reviewing solution graphs
+The workspace includes:
 
-Open [Proof Atlas](https://hoooopla.github.io/proof-atlas/) and use **Open YAML** to select `graph.yaml` from your computer. The viewer supports editing, verification marks, version comparison, and change-request export to GPT Work.
+```text
+AGENTS.md
+README.md
+SCHEMA.md
+schema/solution-graph.schema.json
+prompts/generate-solution-graph.md
+prompts/verify-solution-graph.md
+scripts/validate_graphs.py
+requirements.txt
+examples/commuting-square-roots/
+.github/workflows/validate.yml
+```
 
-The canonical graph format is in [SCHEMA.md](../SCHEMA.md). Each problem maintains only `graph.yaml` and `verification.md`. Do not create `visualization.md` or audit student submissions unless explicitly instructed.
+Validate it locally:
 
-**Privacy:** Never upload student submissions or identifiable data into a public repository. The website's YAML viewer works locally in your browser; it does not store uploaded YAML on a server.
+```sh
+python -m pip install -r requirements.txt
+python scripts/validate_graphs.py
+```
+
+## Inspect and iterate
+
+Open [the viewer](https://hoooopla.github.io/proof-atlas/), choose
+**Open YAML**, then select a local `graph.yaml`. The editor supports
+proof-path inspection, verification marks, graph comparisons and change
+requests. Return the revised YAML or exported comments to GPT Work to
+continue work on your instructor repository.
+
+The public normative graph specification is
+[`core/SCHEMA.md`](../core/SCHEMA.md). A separate `visualization.md`
+is not needed; the website draws proof graphs directly from YAML.
+
+**Privacy:** Uploaded YAML is processed locally by the browser, not
+stored by the public site. Keep student identities, grades and submissions
+out of public repositories.
